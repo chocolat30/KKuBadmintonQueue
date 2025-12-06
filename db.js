@@ -20,6 +20,16 @@ db.serialize(() => {
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  db.run(`
+  CREATE TABLE IF NOT EXISTS match_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    teamA TEXT NOT NULL,
+    teamB TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+  )
+`);
+
 });
 
 module.exports = db;

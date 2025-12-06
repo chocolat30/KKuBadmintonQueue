@@ -9,9 +9,11 @@ app.use(express.static("public"));
 
 // Home: player queue page
 app.get("/", (req, res) => {
+    const { msg } = req.query;
+
     db.all("SELECT * FROM queue ORDER BY id ASC", (err, rows) => {
         db.all("SELECT * FROM current_match ORDER BY id ASC", (err2, match) => {
-            res.render("queue", { queue: rows, match });
+            res.render("queue", { queue: rows, match, msg });
         });
     });
 });
@@ -25,63 +27,70 @@ app.post("/join", (req, res) => {
     });
 });
 
-// Admin panel
-app.get("/admin", (req, res) => {
-    db.all("SELECT * FROM queue ORDER BY id ASC", (err, rows) => {
-        db.all("SELECT * FROM current_match ORDER BY id ASC", (err2, match) => {
-            res.render("admin", { queue: rows, match });
-        });
-    });
-});
-
 // Start match: take first 2 queue rows (each row = 1 pair)
+// Start match: only if no match is active
 app.get("/start", (req, res) => {
     console.log("Start match triggered");
 
-    // Get exactly 2 queue entries = 2 pairs
-    db.all("SELECT * FROM queue ORDER BY id ASC LIMIT 2", (err, rows) => {
+    // 1. Check if a match already exists
+    db.all("SELECT * FROM current_match LIMIT 1", (err, existingMatch) => {
         if (err) {
             console.error(err);
             return res.sendStatus(500);
         }
 
-        if (rows.length < 2) {
-            console.log("Not enough pairs (need 2 pairs).");
-            return res.redirect('/admin');
+        if (existingMatch.length > 0) {
+            console.log("A match is already active. Cannot start another.");
+            return res.redirect("/?msg=active");
         }
 
-        const pairA = rows[0].name;  // first pair
-        const pairB = rows[1].name;  // second pair
-
-        console.log("Starting match:", pairA, "vs", pairB);
-
-        db.run(
-            "INSERT INTO current_match (teamA, teamB) VALUES (?, ?)",
-            [pairA, pairB],
-            function (err) {
-                if (err) {
-                    console.error(err);
-                    return res.sendStatus(500);
-                }
-
-                // Remove the 2 pairs from queue
-                db.run(
-                    "DELETE FROM queue WHERE id IN (?, ?)",
-                    [rows[0].id, rows[1].id],
-                    (err2) => {
-                        if (err2) {
-                            console.error(err2);
-                            return res.sendStatus(500);
-                        }
-
-                        console.log("Match started successfully!");
-                        res.redirect('/admin');
-                    }
-                );
+        // 2. Get exactly 2 queue entries = 2 pairs
+        db.all("SELECT * FROM queue ORDER BY id ASC LIMIT 2", (err2, rows) => {
+            if (err2) {
+                console.error(err2);
+                return res.sendStatus(500);
             }
-        );
+
+            if (rows.length < 2) {
+                console.log("Not enough pairs (need 2 pairs).");
+                return res.redirect("/?msg=notenough");
+            }
+
+            const pairA = rows[0].name;
+            const pairB = rows[1].name;
+
+            console.log("Starting match:", pairA, "vs", pairB);
+
+            // 3. Insert match
+            db.run(
+                "INSERT INTO current_match (teamA, teamB) VALUES (?, ?)",
+                [pairA, pairB],
+                function (err3) {
+                    if (err3) {
+                        console.error(err3);
+                        return res.sendStatus(500);
+                    }
+
+                    // 4. Remove the two pairs from queue
+                    db.run(
+                        "DELETE FROM queue WHERE id IN (?, ?)",
+                        [rows[0].id, rows[1].id],
+                        (err4) => {
+                            if (err4) {
+                                console.error(err4);
+                                return res.sendStatus(500);
+                            }
+
+                            console.log("Match started successfully!");
+                            res.redirect("/");
+                        }
+                    );
+                }
+            );
+        });
     });
 });
+
 
 
 // End match
@@ -89,14 +98,14 @@ app.get("/end", (req, res) => {
     console.log("End match triggered");
 
     db.run("DELETE FROM current_match", () => {
-        res.redirect("/admin");
+        res.redirect("/");
     });
 });
 
 // Remove a pair from queue
 app.get("/remove/:id", (req, res) => {
     db.run("DELETE FROM queue WHERE id = ?", [req.params.id], () => {
-        res.redirect("/admin");
+        res.redirect("/");
     });
 });
 
