@@ -91,9 +91,15 @@ app.get("/start", (req, res) => {
     });
 });
 
+// Remove ALL pairs from queue
+app.get("/clear-queue", (req, res) => {
+    db.run("DELETE FROM queue", (err) => {
+        if (err) return res.sendStatus(500);
+        res.redirect("/?msg=queuecleared");
+    });
+});
 
-
-// End match
+// End match (send both pairs to end of queue, save history, clear match)
 app.get("/end", (req, res) => {
     console.log("End match triggered");
 
@@ -106,23 +112,34 @@ app.get("/end", (req, res) => {
 
         const m = match[0];
 
-        // Insert into history
+        // 1. Insert match into history
         db.run(
             "INSERT INTO match_history (teamA, teamB, timestamp) VALUES (?, ?, ?)",
             [m.teamA, m.teamB, m.timestamp],
             (err2) => {
                 if (err2) return res.sendStatus(500);
 
-                // Clear current match
-                db.run("DELETE FROM current_match", () => {
-                    res.redirect("/history?msg=added");
-                });
+                // 2. Re-insert both pairs back into queue (looping)
+                db.run(
+                    "INSERT INTO queue (name) VALUES (?), (?)",
+                    [m.teamA, m.teamB],
+                    (err3) => {
+                        if (err3) return res.sendStatus(500);
+
+                        // 3. Delete current match
+                        db.run("DELETE FROM current_match", (err4) => {
+                            if (err4) return res.sendStatus(500);
+
+                            console.log("Match ended and recycled back to queue.");
+                            res.redirect("/?msg=looped");
+                        });
+                    }
+                );
             }
         );
     });
-
-    
 });
+
 
 //Match history page
 app.get("/history", (req, res) => {
