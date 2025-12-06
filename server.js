@@ -213,6 +213,41 @@ app.get("/end", (req, res) => {
     });
 });
 
+// RESET MATCH: Clears current match and returns players to queue with 0 matchesPlayed
+app.get("/reset-match", (req, res) => {
+    console.log("Reset match triggered");
+
+    db.all("SELECT * FROM current_match LIMIT 1", (err, match) => {
+        if (err) return res.sendStatus(500);
+
+        if (match.length === 0) {
+            return res.redirect("/?msg=nomatch");
+        }
+
+        const m = match[0];
+
+        // 1. Insert both pairs back into queue with matchesPlayed = 0
+        db.run(
+            "INSERT INTO queue (name, matchesPlayed) VALUES (?, 0)",
+            [m.teamA],
+            () => {
+                db.run(
+                    "INSERT INTO queue (name, matchesPlayed) VALUES (?, 0)",
+                    [m.teamB],
+                    () => {
+                        // 2. Delete match
+                        db.run("DELETE FROM current_match", (err2) => {
+                            if (err2) return res.sendStatus(500);
+
+                            console.log("Match reset completed.");
+                            res.redirect("/?msg=reset");
+                        });
+                    }
+                );
+            }
+        );
+    });
+});
 
 
 //Match history page
