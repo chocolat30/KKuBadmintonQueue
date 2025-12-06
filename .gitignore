@@ -1,0 +1,5 @@
+node_modules/
+queue.db
+database/
+.env
+.github/
