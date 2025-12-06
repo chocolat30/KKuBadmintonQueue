@@ -99,46 +99,120 @@ app.get("/clear-queue", (req, res) => {
     });
 });
 
-// End match (send both pairs to end of queue, save history, clear match)
+// End match with winner logic
 app.get("/end", (req, res) => {
-    console.log("End match triggered");
+    const winner = req.query.w; // "A" or "B"
+    if (!winner) return res.redirect("/?msg=nowinner");
 
-    db.all("SELECT * FROM current_match LIMIT 1", (err, match) => {
+    db.all("SELECT * FROM current_match LIMIT 1", (err, rows) => {
         if (err) return res.sendStatus(500);
+        if (rows.length === 0) return res.redirect("/?msg=nomatch");
 
-        if (match.length === 0) {
-            return res.redirect("/?msg=nomatch");
-        }
+        const m = rows[0];
 
-        const m = match[0];
+        const teamA = m.teamA;
+        const teamB = m.teamB;
 
-        // 1. Insert match into history
+        let matchesA = m.matchesPlayedA;
+        let matchesB = m.matchesPlayedB;
+
+        // Determine winner / loser
+        const winnerTeam = winner === "A" ? teamA : teamB;
+        const loserTeam  = winner === "A" ? teamB : teamA;
+
+        let winnerMatches = winner === "A" ? matchesA : matchesB;
+        winnerMatches += 1; // add 1 match for the winner
+
+        // loser resets counter
+        const loserMatchesReset = 0;
+
+        // Save match to history
         db.run(
-            "INSERT INTO match_history (teamA, teamB, timestamp) VALUES (?, ?, ?)",
-            [m.teamA, m.teamB, m.timestamp],
+            "INSERT INTO match_history (teamA, teamB, winner, timestamp) VALUES (?, ?, ?, ?)",
+            [teamA, teamB, winnerTeam, Date.now()],
             (err2) => {
                 if (err2) return res.sendStatus(500);
 
-                // 2. Re-insert both pairs back into queue (looping)
+                // Insert loser back to queue
                 db.run(
-                    "INSERT INTO queue (name) VALUES (?), (?)",
-                    [m.teamA, m.teamB],
+                    "INSERT INTO queue (name, matchesPlayed) VALUES (?, ?)",
+                    [loserTeam, loserMatchesReset],
                     (err3) => {
                         if (err3) return res.sendStatus(500);
 
-                        // 3. Delete current match
-                        db.run("DELETE FROM current_match", (err4) => {
-                            if (err4) return res.sendStatus(500);
+                        // Winner stays or leaves?
+                        if (winnerMatches >= 2) {
+                            // Winner must leave the court also
+                            db.run(
+                                "INSERT INTO queue (name, matchesPlayed) VALUES (?, ?)",
+                                [winnerTeam, 0],
+                                (err4) => {
+                                    if (err4) return res.sendStatus(500);
 
-                            console.log("Match ended and recycled back to queue.");
-                            res.redirect("/?msg=looped");
-                        });
+                                    // Clear current match
+                                    db.run("DELETE FROM current_match", () => {
+                                        // Now pull next 2 pairs for a fresh match
+                                        db.all("SELECT * FROM queue ORDER BY id ASC LIMIT 2", (err5, next2) => {
+                                            if (next2.length < 2) {
+                                                return res.redirect("/?msg=waiting");
+                                            }
+
+                                            const p1 = next2[0];
+                                            const p2 = next2[1];
+
+                                            db.run(
+                                                "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB) VALUES (?, ?, ?, ?)",
+                                                [p1.name, p2.name, p1.matchesPlayed, p2.matchesPlayed],
+                                                () => {
+                                                    db.run("DELETE FROM queue WHERE id IN (?,?)", [p1.id, p2.id]);
+                                                    res.redirect("/?msg=newmatch");
+                                                }
+                                            );
+                                        });
+                                    });
+                                }
+                            );
+                        } else {
+                            // Winner stays with updated matchesPlayed
+
+                            const winnerField = winner === "A" ? "teamA" : "teamB";
+                            const winnerMatchesField = winner === "A" ? "matchesPlayedA" : "matchesPlayedB";
+
+                            // Update match state
+                            const updateSQL = `UPDATE current_match SET ${winnerMatchesField} = ?`;
+                            db.run(updateSQL, [winnerMatches], (err6) => {
+                                if (err6) return res.sendStatus(500);
+
+                                // Pull one pair from queue
+                                db.all("SELECT * FROM queue ORDER BY id ASC LIMIT 1", (err7, next1) => {
+                                    if (next1.length < 1) {
+                                        return res.redirect("/?msg=waiting1");
+                                    }
+
+                                    const newTeam = next1[0];
+
+                                    // Replace loser with new team
+                                    const teamField = winner === "A" ? "teamB" : "teamA";
+                                    const matchesField = winner === "A" ? "matchesPlayedB" : "matchesPlayedA";
+
+                                    db.run(
+                                        `UPDATE current_match SET ${teamField}=?, ${matchesField}=?`,
+                                        [newTeam.name, newTeam.matchesPlayed],
+                                        () => {
+                                            db.run("DELETE FROM queue WHERE id = ?", [newTeam.id]);
+                                            res.redirect("/?msg=nextjoined");
+                                        }
+                                    );
+                                });
+                            });
+                        } // end else winner stays
                     }
                 );
             }
         );
     });
 });
+
 
 
 //Match history page
