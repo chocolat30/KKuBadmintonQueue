@@ -97,10 +97,42 @@ app.get("/start", (req, res) => {
 app.get("/end", (req, res) => {
     console.log("End match triggered");
 
-    db.run("DELETE FROM current_match", () => {
-        res.redirect("/");
+    db.all("SELECT * FROM current_match LIMIT 1", (err, match) => {
+        if (err) return res.sendStatus(500);
+
+        if (match.length === 0) {
+            return res.redirect("/?msg=nomatch");
+        }
+
+        const m = match[0];
+
+        // Insert into history
+        db.run(
+            "INSERT INTO match_history (teamA, teamB, timestamp) VALUES (?, ?, ?)",
+            [m.teamA, m.teamB, m.timestamp],
+            (err2) => {
+                if (err2) return res.sendStatus(500);
+
+                // Clear current match
+                db.run("DELETE FROM current_match", () => {
+                    res.redirect("/history?msg=added");
+                });
+            }
+        );
+    });
+
+    
+});
+
+//Match history page
+app.get("/history", (req, res) => {
+    const { msg } = req.query;
+
+    db.all("SELECT * FROM match_history ORDER BY id DESC", (err, rows) => {
+        res.render("history", { history: rows, msg });
     });
 });
+
 
 // Remove a pair from queue
 app.get("/remove/:id", (req, res) => {
