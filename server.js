@@ -63,8 +63,8 @@ app.get("/start", (req, res) => {
 
             // 3. Insert match
             db.run(
-                "INSERT INTO current_match (teamA, teamB) VALUES (?, ?)",
-                [pairA, pairB],
+                "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB, timestamp) VALUES (?, ?, 0, 0, ?)",
+                [pairA, pairB, Date.now()],
                 function (err3) {
                     if (err3) {
                         console.error(err3);
@@ -118,7 +118,7 @@ app.get("/end", (req, res) => {
 
         // Determine winner / loser
         const winnerTeam = winner === "A" ? teamA : teamB;
-        const loserTeam  = winner === "A" ? teamB : teamA;
+        const loserTeam = winner === "A" ? teamB : teamA;
 
         let winnerMatches = winner === "A" ? matchesA : matchesB;
         winnerMatches += 1; // add 1 match for the winner

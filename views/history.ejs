@@ -24,7 +24,8 @@
       <% history.forEach(h => { %>
         <li class="list-group-item">
           <strong><%= h.teamA %></strong> vs <strong><%= h.teamB %></strong>
-          <div class="text-muted">Played at: <%= h.timestamp %></div>
+          <div class="mt-2 text-muted">Played at: <%= new Date(Number(h.timestamp)).toLocaleString('en-GB') %>
+</div>
         </li>
       <% }) %>
     </ul>

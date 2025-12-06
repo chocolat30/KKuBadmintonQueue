@@ -22,11 +22,11 @@
 
     <!-- Admin Controls -->
     <div class="mb-4">
-      <a href="/start" class="btn btn-success me-2">Start Match</a>
-      <a href="/end?w=A" class="btn btn-primary me-2">Team A Won</a>
-      <a href="/end?w=B" class="btn btn-primary">Team B Won</a>
-      <a href="/history" class="btn btn-secondary">Match History</a>
-      <a href="/clear-queue" class="btn btn-warning"
+      <a href="/start" class="btn btn-primary me-2">Start Match</a>
+      <a href="/end?w=A" class="btn btn-success me-2">Team A Won</a>
+      <a href="/end?w=B" class="btn btn-danger me-2">Team B Won</a>
+      <a href="/history" class="btn btn-secondary me-2">Match History</a>
+      <a href="/clear-queue" class="btn btn-warning me-2"
         onclick="return confirm('Are you sure you want to clear the entire queue?');">
         Clear Queue
       </a>
@@ -53,7 +53,7 @@
               </div>
 
               <div class="mt-2 text-muted">
-                Started at: <%= m.timestamp %>
+                Started at: <%= new Date(Number(m.timestamp)).toLocaleString('en-GB') %>
               </div>
             </li>
             <% }) %>

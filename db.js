@@ -11,7 +11,7 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       matchesPlayed INTEGER DEFAULT 0,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      timestamp INTEGER DEFAULT (strftime('%s','now')*1000)
     )
   `);
 
@@ -26,7 +26,7 @@ db.serialize(() => {
       teamB TEXT NOT NULL,
       matchesPlayedA INTEGER DEFAULT 0,
       matchesPlayedB INTEGER DEFAULT 0,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      timestamp INTEGER DEFAULT (strftime('%s','now')*1000)
     )
   `);
 
@@ -41,7 +41,7 @@ db.serialize(() => {
       teamA TEXT NOT NULL,
       teamB TEXT NOT NULL,
       winner TEXT,
-      timestamp TEXT NOT NULL
+      timestamp INTEGER NOT NULL
     )
   `);
 
