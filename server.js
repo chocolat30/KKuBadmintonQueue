@@ -108,84 +108,97 @@ app.get("/start", (req, res) => {
 
 // ----------------- End Match -----------------
 app.get("/end", (req, res) => {
-    const winner = req.query.w; // "A" or "B"
+    const winner = req.query.w;
     if (!winner) return res.redirect("/?msg=nowinner");
 
-    db.all("SELECT * FROM current_match LIMIT 1", (err, rows) => {
-        if (err) return res.sendStatus(500);
-        if (rows.length === 0) return res.redirect("/?msg=nomatch");
+    db.get("SELECT * FROM current_match LIMIT 1", (err, m) => {
+        if (err || !m) return res.redirect("/?msg=nomatch");
 
-        const m = rows[0];
-
-        let teamA = m.teamA;
-        let teamB = m.teamB;
+        const teamA = m.teamA;
+        const teamB = m.teamB;
         let matchesA = m.matchesPlayedA;
         let matchesB = m.matchesPlayedB;
 
-        // Increment winner's match count
         if (winner === "A") matchesA += 1;
         else matchesB += 1;
 
         const winnerTeam = winner === "A" ? teamA : teamB;
         const loserTeam = winner === "A" ? teamB : teamA;
+        const winnerMatches = winner === "A" ? matchesA : matchesB;
 
-        // Save match to history
         db.run(
             "INSERT INTO match_history (teamA, teamB, winner, timestamp) VALUES (?, ?, ?, ?)",
             [teamA, teamB, winnerTeam, Date.now()],
             (err2) => {
                 if (err2) return res.sendStatus(500);
 
-                // Helper: send a player to the end of the queue
-                const enqueuePlayer = (name, matchesPlayed) => {
-                    db.get("SELECT MAX(position) as maxPos FROM queue", (err3, row) => {
-                        const nextPos = (row?.maxPos || 0) + 1;
-                        db.run(
-                            "INSERT INTO queue (name, matchesPlayed, position) VALUES (?, ?, ?)",
-                            [name, matchesPlayed, nextPos]
-                        );
+                const enqueue = (name, mp) =>
+                    new Promise((resolve) => {
+                        db.get("SELECT MAX(position) as maxPos FROM queue", (err3, row) => {
+                            const nextPos = (row?.maxPos || 0) + 1;
+                            db.run(
+                                "INSERT INTO queue (name, matchesPlayed, position) VALUES (?, ?, ?)",
+                                [name, mp, nextPos],
+                                resolve
+                            );
+                        });
                     });
-                };
 
-                // Loser always goes to the end of the queue
-                enqueuePlayer(loserTeam, 0);
+                let enqueueOperations = [];
 
-                // Check if winner has played 2 matches; if yes, send to end of queue
-                let winnerLeaves = false;
-                if ((winner === "A" && matchesA >= 2) || (winner === "B" && matchesB >= 2)) {
-                    enqueuePlayer(winnerTeam, 0);
-                    winnerLeaves = true;
-                }
+                enqueueOperations.push(enqueue(loserTeam, 0));
 
-                // Replace leaving player(s) with next pair(s) from queue
-                db.all("SELECT * FROM queue ORDER BY position ASC LIMIT ?", [winnerLeaves ? 2 : 1], (err4, nextPairs) => {
-                    const updates = [];
+                let winnerLeaves = winnerMatches >= 2;
+                if (winnerLeaves) enqueueOperations.push(enqueue(winnerTeam, 0));
 
-                    // Determine who stays in court
-                    if (!winnerLeaves) {
-                        if (winner === "A") updates.push({ name: teamA, matchesPlayed: matchesA });
-                        else updates.push({ name: teamB, matchesPlayed: matchesB });
-                    }
+                // ⭐ Wait until ALL inserts finish ⭐
+                Promise.all(enqueueOperations).then(() => {
 
-                    nextPairs.forEach(p => updates.push({ name: p.name, matchesPlayed: p.matchesPlayed }));
+                    const needed = winnerLeaves ? 2 : 1;
 
-                    // Update current_match
-                    const teamAUpdate = updates[0] || { name: null, matchesPlayed: 0 };
-                    const teamBUpdate = updates[1] || { name: null, matchesPlayed: 0 };
+                    db.all(
+                        "SELECT * FROM queue ORDER BY position ASC LIMIT ?",
+                        [needed],
+                        (err4, nextPairs) => {
 
-                    db.run(
-                        "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?",
-                        [teamAUpdate.name, teamAUpdate.matchesPlayed, teamBUpdate.name, teamBUpdate.matchesPlayed],
-                        () => {
-                            // Remove newly added pairs from queue and normalize positions
-                            if (nextPairs.length > 0) {
-                                const ids = nextPairs.map(p => p.id);
-                                db.run(`DELETE FROM queue WHERE id IN (${ids.join(",")})`, () => {
-                                    normalizeQueuePositions(() => res.redirect("/?msg=nextjoined"));
+                            const staying = [];
+
+                            if (!winnerLeaves) {
+                                staying.push({
+                                    name: winnerTeam,
+                                    matchesPlayed: winnerMatches
                                 });
-                            } else {
-                                normalizeQueuePositions(() => res.redirect("/?msg=nextjoined"));
                             }
+
+                            nextPairs.forEach((p) =>
+                                staying.push({
+                                    name: p.name,
+                                    matchesPlayed: p.matchesPlayed
+                                })
+                            );
+
+                            const A = staying[0] || { name: null, matchesPlayed: 0 };
+                            const B = staying[1] || { name: null, matchesPlayed: 0 };
+
+                            db.run(
+                                "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?",
+                                [A.name, A.matchesPlayed, B.name, B.matchesPlayed],
+                                () => {
+                                    if (nextPairs.length > 0) {
+                                        const ids = nextPairs.map((x) => x.id).join(",");
+                                        db.run(
+                                            `DELETE FROM queue WHERE id IN (${ids})`,
+                                            () => normalizeQueuePositions(() =>
+                                                res.redirect("/?msg=ended")
+                                            )
+                                        );
+                                    } else {
+                                        normalizeQueuePositions(() =>
+                                            res.redirect("/?msg=ended")
+                                        );
+                                    }
+                                }
+                            );
                         }
                     );
                 });
