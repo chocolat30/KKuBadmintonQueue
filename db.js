@@ -11,12 +11,26 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       matchesPlayed INTEGER DEFAULT 0,
+      position INTEGER DEFAULT 0,
       timestamp INTEGER DEFAULT (strftime('%s','now')*1000)
     )
   `);
 
-  // Add missing column matchesPlayed (if old DB exists)
-  db.run(`ALTER TABLE queue ADD COLUMN matchesPlayed INTEGER DEFAULT 0`, err => {});
+  // Ensure matchesPlayed column exists
+  db.get("PRAGMA table_info(queue)", (err, info) => {
+    if (err) return;
+    const columns = [];
+    db.all("PRAGMA table_info(queue)", (err, rows) => {
+      if (err) return;
+      rows.forEach(r => columns.push(r.name));
+      if (!columns.includes("matchesPlayed")) {
+        db.run(`ALTER TABLE queue ADD COLUMN matchesPlayed INTEGER DEFAULT 0`);
+      }
+      if (!columns.includes("position")) {
+        db.run(`ALTER TABLE queue ADD COLUMN position INTEGER DEFAULT 0`);
+      }
+    });
+  });
 
   // ========== TABLE: current_match ==========
   db.run(`
@@ -30,9 +44,13 @@ db.serialize(() => {
     )
   `);
 
-  // Add missing columns safely
-  db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedA INTEGER DEFAULT 0`, err => {});
-  db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedB INTEGER DEFAULT 0`, err => {});
+  // Ensure current_match columns exist
+  db.all("PRAGMA table_info(current_match)", (err, rows) => {
+    if (!rows) return;
+    const cols = rows.map(r => r.name);
+    if (!cols.includes("matchesPlayedA")) db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedA INTEGER DEFAULT 0`);
+    if (!cols.includes("matchesPlayedB")) db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedB INTEGER DEFAULT 0`);
+  });
 
   // ========== TABLE: match_history ==========
   db.run(`
@@ -44,9 +62,6 @@ db.serialize(() => {
       timestamp INTEGER NOT NULL
     )
   `);
-
-  // Add winner column if missing
-  db.run(`ALTER TABLE match_history ADD COLUMN winner TEXT`, err => {});
 
 });
 

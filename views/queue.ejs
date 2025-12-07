@@ -75,13 +75,24 @@
                 <%= q.name %>
               </span>
 
-              <a href="/remove/<%= q.id %>" class="btn btn-sm btn-outline-danger">
-                Remove
-              </a>
+              <div>
+                <!-- Move Up (disable if first item) -->
+                <% if (i> 0) { %>
+                  <a href="/move/<%= q.id %>/up" class="btn btn-sm btn-outline-secondary me-1">UP</a>
+                  <% } %>
+
+                    <!-- Move Down (disable if last item) -->
+                    <% if (i < queue.length - 1) { %>
+                      <a href="/move/<%= q.id %>/down" class="btn btn-sm btn-outline-secondary me-1">DOWN</a>
+                      <% } %>
+
+                        <a href="/remove/<%= q.id %>" class="btn btn-sm btn-outline-danger">Remove</a>
+              </div>
             </li>
             <% }) %>
               <% } %>
     </ul>
+
 
     <!-- Alerts -->
     <% if (msg==='active' ) { %>
