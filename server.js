@@ -161,8 +161,8 @@ app.get("/end", (req, res) => {
                                             const p2 = next2[1];
 
                                             db.run(
-                                                "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB) VALUES (?, ?, ?, ?)",
-                                                [p1.name, p2.name, p1.matchesPlayed, p2.matchesPlayed],
+                                                "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB, timestamp) VALUES (?, ?, ?, ?, ?)",
+                                                [p1.name, p2.name, p1.matchesPlayed, p2.matchesPlayed, Date.now()],
                                                 () => {
                                                     db.run("DELETE FROM queue WHERE id IN (?,?)", [p1.id, p2.id]);
                                                     res.redirect("/?msg=newmatch");
