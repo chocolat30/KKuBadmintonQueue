@@ -29,11 +29,30 @@ app.get("/", (req, res) => {
   });
 });
 
-// Add court (dynamic)
+// Add court (reuse smallest missing ID)
 app.post("/courts/add", (req, res) => {
-  const name = (req.body.name || "").trim() || `Court`;
-  db.run("INSERT INTO courts (name) VALUES (?)", [name], () => {
-    res.redirect("/");
+  const name = (req.body.name || "").trim() || "Court";
+
+  db.all("SELECT id FROM courts ORDER BY id ASC", (err, rows) => {
+    if (err) return res.redirect("/?msg=error");
+
+    // Find smallest missing ID (slot)
+    let newId = 1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].id !== i + 1) {
+        newId = i + 1;
+        break;
+      }
+      newId = rows.length + 1;
+    }
+
+    db.run(
+      "INSERT INTO courts (id, name) VALUES (?, ?)",
+      [newId, `${name}`],
+      () => {
+        res.redirect("/");
+      }
+    );
   });
 });
 
@@ -263,6 +282,23 @@ app.get("/court/:cid/clear-queue", (req, res) => {
   const cid = Number(req.params.cid);
   db.run("DELETE FROM queue WHERE court_id = ?", [cid], () => res.redirect(`/court/${cid}?msg=queuecleared`));
 });
+
+// Delete court, no shifting
+app.get("/court/:cid/delete", (req, res) => {
+  const cid = Number(req.params.cid);
+
+  db.serialize(() => {
+    db.run("DELETE FROM queue WHERE court_id = ?", [cid]);
+    db.run("DELETE FROM current_match WHERE court_id = ?", [cid]);
+    db.run("DELETE FROM match_history WHERE court_id = ?", [cid]);
+
+    db.run("DELETE FROM courts WHERE id = ?", [cid], () => {
+      res.redirect("/?msg=court_deleted");
+    });
+  });
+});
+
+
 
 // --- history: global or per-court
 app.get("/history", (req, res) => {

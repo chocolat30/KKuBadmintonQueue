@@ -6,12 +6,30 @@ const db = new sqlite3.Database(dbPath);
 db.serialize(() => {
 
   // ========== TABLE: courts ==========
+  // Remove AUTOINCREMENT so IDs can be reused
   db.run(`
     CREATE TABLE IF NOT EXISTS courts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INTEGER PRIMARY KEY,
       name TEXT NOT NULL
     )
   `);
+
+  // Ensure AUTOINCREMENT is removed (for existing DBs)
+  db.all("PRAGMA table_info(courts)", (err, rows) => {
+    const hasAuto = rows.some(r => r.pk === 1 && r.type.includes("AUTOINCREMENT"));
+    if (hasAuto) {
+      // rebuild table without AUTOINCREMENT
+      db.run(`ALTER TABLE courts RENAME TO courts_old`);
+      db.run(`
+        CREATE TABLE courts (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL
+        )
+      `);
+      db.run(`INSERT INTO courts (id, name) SELECT id, name FROM courts_old`);
+      db.run(`DROP TABLE courts_old`);
+    }
+  });
 
   // ========== TABLE: queue ==========
   db.run(`
@@ -25,7 +43,6 @@ db.serialize(() => {
     )
   `);
 
-  // Ensure columns exist
   db.all("PRAGMA table_info(queue)", (err, rows) => {
     if (!rows) return;
     const cols = rows.map(r => r.name);
@@ -53,9 +70,12 @@ db.serialize(() => {
   db.all("PRAGMA table_info(current_match)", (err, rows) => {
     if (!rows) return;
     const cols = rows.map(r => r.name);
-    if (!cols.includes("matchesPlayedA")) db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedA INTEGER DEFAULT 0`);
-    if (!cols.includes("matchesPlayedB")) db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedB INTEGER DEFAULT 0`);
-    if (!cols.includes("court_id")) db.run(`ALTER TABLE current_match ADD COLUMN court_id INTEGER DEFAULT 1`);
+    if (!cols.includes("matchesPlayedA"))
+      db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedA INTEGER DEFAULT 0`);
+    if (!cols.includes("matchesPlayedB"))
+      db.run(`ALTER TABLE current_match ADD COLUMN matchesPlayedB INTEGER DEFAULT 0`);
+    if (!cols.includes("court_id"))
+      db.run(`ALTER TABLE current_match ADD COLUMN court_id INTEGER DEFAULT 1`);
   });
 
   // ========== TABLE: match_history ==========
