@@ -151,7 +151,7 @@ app.get("/end", (req, res) => {
                 let winnerLeaves = winnerMatches >= 2;
                 if (winnerLeaves) enqueueOperations.push(enqueue(winnerTeam, 0));
 
-                // ⭐ Wait until ALL inserts finish ⭐
+                // Wait until ALL inserts finish
                 Promise.all(enqueueOperations).then(() => {
 
                     const needed = winnerLeaves ? 2 : 1;
@@ -181,8 +181,8 @@ app.get("/end", (req, res) => {
                             const B = staying[1] || { name: null, matchesPlayed: 0 };
 
                             db.run(
-                                "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?",
-                                [A.name, A.matchesPlayed, B.name, B.matchesPlayed],
+                                "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?, timestamp=?",
+                                [A.name, A.matchesPlayed, B.name, B.matchesPlayed, Date.now()],
                                 () => {
                                     if (nextPairs.length > 0) {
                                         const ids = nextPairs.map((x) => x.id).join(",");
@@ -258,27 +258,27 @@ app.get("/add-match/:side", (req, res) => {
 
 // Subtract one match from a side
 app.get("/minus-match/:side", (req, res) => {
-  const side = req.params.side; // A or B
+    const side = req.params.side; // A or B
 
-  db.get(`SELECT * FROM current_match LIMIT 1`, (err, match) => {
-    if (err || !match) return res.redirect("/?msg=nomatch");
+    db.get(`SELECT * FROM current_match LIMIT 1`, (err, match) => {
+        if (err || !match) return res.redirect("/?msg=nomatch");
 
-    let current = side === "A" ? match.matchesPlayedA : match.matchesPlayedB;
+        let current = side === "A" ? match.matchesPlayedA : match.matchesPlayedB;
 
-    // Prevent negative numbers
-    if (current <= 0) return res.redirect("/?msg=invalid");
+        // Prevent negative numbers
+        if (current <= 0) return res.redirect("/?msg=invalid");
 
-    const newVal = current - 1;
+        const newVal = current - 1;
 
-    const column = side === "A" ? "matchesPlayedA" : "matchesPlayedB";
+        const column = side === "A" ? "matchesPlayedA" : "matchesPlayedB";
 
-    db.run(`UPDATE current_match SET ${column} = ? WHERE id = ?`,
-      [newVal, match.id],
-      () => {
-        res.redirect("/");
-      }
-    );
-  });
+        db.run(`UPDATE current_match SET ${column} = ? WHERE id = ?`,
+            [newVal, match.id],
+            () => {
+                res.redirect("/");
+            }
+        );
+    });
 });
 
 
