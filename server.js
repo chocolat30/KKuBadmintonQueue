@@ -298,6 +298,15 @@ app.get("/history", (req, res) => {
     });
 });
 
+// Clear entire match history
+app.get("/clear-history", (req, res) => {
+    db.run("DELETE FROM match_history", (err) => {
+        if (err) return res.sendStatus(500);
+        res.redirect("/history?msg=cleared");
+    });
+});
+
+
 //  Remove One 
 app.get("/remove/:id", (req, res) => {
     db.run("DELETE FROM queue WHERE id = ?", [req.params.id], () => {

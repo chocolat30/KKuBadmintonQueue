@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Match History</title>
 
   <!-- Bootstrap -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-  />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
 
   <style>
     body {
       font-size: 1rem;
     }
+
     .history-item {
       font-size: 1.1rem;
     }
@@ -22,49 +21,59 @@
 </head>
 
 <body class="bg-light">
-<div class="container mt-4 mb-5">
+  <div class="container mt-4 mb-5">
 
-  <h1 class="text-center mb-4 fs-3">Match History</h1>
+    <h1 class="text-center mb-4 fs-3">Match History</h1>
+    <div class="d-flex justify-content-center mb-3">
+      <a href="/" class="btn btn-secondary w-50 me-2">Back</a>
 
-  <div class="d-flex justify-content-center mb-3">
-    <a href="/" class="btn btn-secondary w-100">Back to Queue</a>
+      <a href="/clear-history" class="btn btn-danger w-50"
+        onclick="return confirm('Are you sure you want to clear ALL match history?');">
+        Clear History
+      </a>
+    </div>
+
+
+    <% if (msg==='added' ) { %>
+      <div class="alert alert-success text-center">Match added to history!</div>
+      <% } %>
+
+        <% if (history.length===0) { %>
+          <div class="alert alert-info text-center">No history yet.</div>
+          <% } else { %>
+
+            <ul class="list-group">
+              <% history.forEach(h=> { %>
+                <li class="list-group-item history-item">
+                  <div class="fw-bold">
+                    <span class="text-success">
+                      <%= h.teamA %>
+                    </span>
+                    <span class="mx-1">vs</span>
+                    <span class="text-danger">
+                      <%= h.teamB %>
+                    </span>
+                  </div>
+
+                  <% if (h.winner) { %>
+                    <div class="mt-1">
+                      Winner:
+                      <span class="badge bg-primary">
+                        <%= h.winner %>
+                      </span>
+                    </div>
+                    <% } %>
+
+                      <div class="mt-2 text-muted small">
+                        Played at: <%= new Date(Number(h.timestamp)).toLocaleString('en-GB') %>
+                      </div>
+                </li>
+                <% }) %>
+            </ul>
+
+            <% } %>
+
   </div>
-
-  <% if (msg === 'added') { %>
-    <div class="alert alert-success text-center">Match added to history!</div>
-  <% } %>
-
-  <% if (history.length === 0) { %>
-    <div class="alert alert-info text-center">No history yet.</div>
-  <% } else { %>
-
-    <ul class="list-group">
-      <% history.forEach(h => { %>
-        <li class="list-group-item history-item">
-          <div class="fw-bold">
-            <span class="text-success"><%= h.teamA %></span> 
-            <span class="mx-1">vs</span>
-            <span class="text-danger"><%= h.teamB %></span>
-          </div>
-
-          <% if (h.winner) { %>
-            <div class="mt-1">
-              Winner: 
-              <span class="badge bg-primary">
-                <%= h.winner %>
-              </span>
-            </div>
-          <% } %>
-
-          <div class="mt-2 text-muted small">
-            Played at: <%= new Date(Number(h.timestamp)).toLocaleString('en-GB') %>
-          </div>
-        </li>
-      <% }) %>
-    </ul>
-
-  <% } %>
-
-</div>
 </body>
+
 </html>
