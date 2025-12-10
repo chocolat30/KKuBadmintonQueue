@@ -7,7 +7,7 @@ app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// ----------------- Helper: Normalize Queue Positions -----------------
+//  Helper: Normalize Queue Positions 
 function normalizeQueuePositions(callback) {
     db.all("SELECT id FROM queue ORDER BY position ASC", (err, rows) => {
         if (err) return callback && callback(err);
@@ -25,7 +25,7 @@ function normalizeQueuePositions(callback) {
     });
 }
 
-// ----------------- Home: Queue -----------------
+//  Home: Queue 
 app.get("/", (req, res) => {
     const { msg } = req.query;
 
@@ -44,7 +44,7 @@ app.get("/", (req, res) => {
     });
 });
 
-// ----------------- Join Queue -----------------
+//  Join Queue 
 app.post("/join", (req, res) => {
     const { name } = req.body;
 
@@ -56,7 +56,7 @@ app.post("/join", (req, res) => {
     });
 });
 
-// ----------------- Move Up/Down -----------------
+//  Move Up/Down 
 app.get("/move/:id/:direction", (req, res) => {
     const { id, direction } = req.params;
 
@@ -77,7 +77,7 @@ app.get("/move/:id/:direction", (req, res) => {
     });
 });
 
-// ----------------- Start Match -----------------
+//  Start Match 
 app.get("/start", (req, res) => {
     db.all("SELECT * FROM current_match LIMIT 1", (err, existingMatch) => {
         if (err) return res.sendStatus(500);
@@ -106,7 +106,7 @@ app.get("/start", (req, res) => {
     });
 });
 
-// ----------------- End Match -----------------
+//  End Match 
 app.get("/end", (req, res) => {
     const winner = req.query.w;
     if (!winner) return res.redirect("/?msg=nowinner");
@@ -207,7 +207,7 @@ app.get("/end", (req, res) => {
     });
 });
 
-// ----------------- Reset Match -----------------
+//  Reset Match 
 app.get("/reset-match", (req, res) => {
     db.all("SELECT * FROM current_match LIMIT 1", (err, match) => {
         if (err) return res.sendStatus(500);
@@ -232,7 +232,57 @@ app.get("/reset-match", (req, res) => {
     });
 });
 
-// ----------------- Clear Queue -----------------
+// Add one match to a side
+app.get("/add-match/:side", (req, res) => {
+    const side = req.params.side; // "A" or "B"
+
+    db.get("SELECT * FROM current_match LIMIT 1", (err, m) => {
+        if (err || !m) return res.redirect("/?msg=nomatch");
+
+        let newA = m.matchesPlayedA;
+        let newB = m.matchesPlayedB;
+
+        if (side === "A") newA++;
+        if (side === "B") newB++;
+
+        db.run(
+            "UPDATE current_match SET matchesPlayedA=?, matchesPlayedB=?",
+            [newA, newB],
+            (err2) => {
+                if (err2) return res.redirect("/?msg=error");
+                res.redirect("/?msg=addedOne");
+            }
+        );
+    });
+});
+
+// Subtract one match from a side
+app.get("/minus-match/:side", (req, res) => {
+  const side = req.params.side; // A or B
+
+  db.get(`SELECT * FROM current_match LIMIT 1`, (err, match) => {
+    if (err || !match) return res.redirect("/?msg=nomatch");
+
+    let current = side === "A" ? match.matchesPlayedA : match.matchesPlayedB;
+
+    // Prevent negative numbers
+    if (current <= 0) return res.redirect("/?msg=invalid");
+
+    const newVal = current - 1;
+
+    const column = side === "A" ? "matchesPlayedA" : "matchesPlayedB";
+
+    db.run(`UPDATE current_match SET ${column} = ? WHERE id = ?`,
+      [newVal, match.id],
+      () => {
+        res.redirect("/");
+      }
+    );
+  });
+});
+
+
+// Clear Queue 
 app.get("/clear-queue", (req, res) => {
     db.run("DELETE FROM queue", (err) => {
         if (err) return res.sendStatus(500);
@@ -240,7 +290,7 @@ app.get("/clear-queue", (req, res) => {
     });
 });
 
-// ----------------- Match History -----------------
+//  Match History 
 app.get("/history", (req, res) => {
     const { msg } = req.query;
     db.all("SELECT * FROM match_history ORDER BY id DESC", (err, rows) => {
@@ -248,7 +298,7 @@ app.get("/history", (req, res) => {
     });
 });
 
-// ----------------- Remove One -----------------
+//  Remove One 
 app.get("/remove/:id", (req, res) => {
     db.run("DELETE FROM queue WHERE id = ?", [req.params.id], () => {
         normalizeQueuePositions(() => res.redirect("/"));
