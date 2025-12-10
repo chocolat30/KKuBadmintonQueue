@@ -1,0 +1,40 @@
+<!-- views/courts.ejs -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Courts</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+</head>
+<body class="bg-light">
+  <div class="container mt-4">
+    <h1 class="mb-4">Courts</h1>
+
+    <div class="row g-3">
+      <% courts.forEach(c => { %>
+        <div class="col-12 col-sm-6 col-md-4">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title"><%= c.name %></h5>
+              <a href="/court/<%= c.id %>" class="btn btn-primary mb-2 w-100">Open</a>
+              <a href="/court/<%= c.id %>/history" class="btn btn-secondary mb-2 w-100">History</a>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <hr class="my-4"/>
+
+    <h5>Add Court</h5>
+    <form action="/courts/add" method="POST" class="mb-3">
+      <div class="input-group">
+        <input name="name" class="form-control" placeholder="Court name (e.g. Court 2)" />
+        <button class="btn btn-success">Add</button>
+      </div>
+    </form>
+
+    <a href="/history" class="btn btn-outline-primary">View All History</a>
+  </div>
+</body>
+</html>

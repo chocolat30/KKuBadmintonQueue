@@ -1,317 +1,294 @@
+// server.js
 const express = require("express");
 const bodyParser = require("body-parser");
 const db = require("./db");
-
 const app = express();
+
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-//  Helper: Normalize Queue Positions 
-function normalizeQueuePositions(callback) {
-    db.all("SELECT id FROM queue ORDER BY position ASC", (err, rows) => {
-        if (err) return callback && callback(err);
-
-        let updates = rows.map((row, index) => {
-            return new Promise((resolve, reject) => {
-                db.run("UPDATE queue SET position=? WHERE id=?", [index + 1, row.id], (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-        });
-
-        Promise.all(updates).then(() => callback && callback()).catch(callback);
+// --- Helper: normalize positions for a specific court
+function normalizeQueuePositions(court_id, callback) {
+  db.all("SELECT id FROM queue WHERE court_id = ? ORDER BY position ASC", [court_id], (err, rows) => {
+    if (err) return callback && callback(err);
+    const updates = rows.map((r, idx) => {
+      return new Promise((resolve, reject) => {
+        db.run("UPDATE queue SET position = ? WHERE id = ?", [idx + 1, r.id], (e) => e ? reject(e) : resolve());
+      });
     });
+    Promise.all(updates).then(() => callback && callback()).catch(callback);
+  });
 }
 
-//  Home: Queue 
+// --- Home: list courts (Option B)
 app.get("/", (req, res) => {
-    const { msg } = req.query;
+  db.all("SELECT * FROM courts ORDER BY id ASC", (err, courts) => {
+    if (err) courts = [];
+    res.render("courts", { courts });
+  });
+});
 
-    db.all("SELECT * FROM queue ORDER BY position ASC", (err, queue) => {
-        if (err) {
-            console.error(err);
-            queue = [];
+// Add court (dynamic)
+app.post("/courts/add", (req, res) => {
+  const name = (req.body.name || "").trim() || `Court`;
+  db.run("INSERT INTO courts (name) VALUES (?)", [name], () => {
+    res.redirect("/");
+  });
+});
+
+// Remove court (optional) - simple delete (will orphan data; you can extend to cascade)
+app.post("/courts/:cid/delete", (req, res) => {
+  const cid = req.params.cid;
+  db.run("DELETE FROM courts WHERE id = ?", [cid], () => res.redirect("/"));
+});
+
+// --- Court page: show queue + current_match for that court
+app.get("/court/:cid", (req, res) => {
+  const cid = Number(req.params.cid);
+  const { msg } = req.query;
+
+  db.get("SELECT * FROM courts WHERE id = ?", [cid], (err, court) => {
+    if (err || !court) return res.redirect("/");
+    db.all("SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC", [cid], (errQ, queue) => {
+      if (errQ) queue = [];
+      db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (errM, match) => {
+        if (errM) match = null;
+        res.render("queue", { queue: queue || [], match: match ? [match] : [], court, msg });
+      });
+    });
+  });
+});
+
+// --- Join queue for a court
+app.post("/court/:cid/join", (req, res) => {
+  const cid = Number(req.params.cid);
+  const name = (req.body.name || "").trim();
+  if (!name) return res.redirect(`/court/${cid}`);
+
+  db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (err, row) => {
+    const nextPos = (row?.maxPos || 0) + 1;
+    db.run("INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, 0, ?, ?)", [name, nextPos, cid], () => {
+      res.redirect(`/court/${cid}`);
+    });
+  });
+});
+
+// --- Move up/down in a court's queue
+app.get("/court/:cid/move/:id/:direction", (req, res) => {
+  const cid = Number(req.params.cid);
+  const id = Number(req.params.id);
+  const direction = req.params.direction;
+
+  db.get("SELECT id, position FROM queue WHERE id = ? AND court_id = ?", [id, cid], (err, current) => {
+    if (!current) return res.redirect(`/court/${cid}?msg=notfound`);
+    const swapPos = direction === "up" ? current.position - 1 : current.position + 1;
+    db.get("SELECT id FROM queue WHERE position = ? AND court_id = ?", [swapPos, cid], (err2, swapWith) => {
+      if (!swapWith) return res.redirect(`/court/${cid}?msg=topOrBottom`);
+      db.run("UPDATE queue SET position = ? WHERE id = ?", [swapPos, current.id]);
+      db.run("UPDATE queue SET position = ? WHERE id = ?", [current.position, swapWith.id], () => {
+        normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`));
+      });
+    });
+  });
+});
+
+// --- Start match on a court
+app.get("/court/:cid/start", (req, res) => {
+  const cid = Number(req.params.cid);
+  db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, existing) => {
+    if (err) return res.redirect(`/court/${cid}?msg=error`);
+    if (existing) return res.redirect(`/court/${cid}?msg=active`);
+    db.all("SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC LIMIT 2", [cid], (err2, rows) => {
+      if (err2) return res.redirect(`/court/${cid}?msg=error`);
+      if (!rows || rows.length < 2) return res.redirect(`/court/${cid}?msg=notenough`);
+      const a = rows[0], b = rows[1];
+      db.run(
+        "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB, timestamp, court_id) VALUES (?, ?, ?, ?, ?, ?)",
+        [a.name, b.name, a.matchesPlayed, b.matchesPlayed, Date.now(), cid],
+        function (err3) {
+          if (err3) return res.redirect(`/court/${cid}?msg=error`);
+          db.run("DELETE FROM queue WHERE id IN (?, ?) AND court_id = ?", [a.id, b.id, cid], () => {
+            normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}?msg=started`));
+          });
         }
-        db.all("SELECT * FROM current_match ORDER BY id ASC", (err2, match) => {
-            if (err2) {
-                console.error(err2);
-                match = [];
-            }
-            res.render("queue", { queue: queue || [], match: match || [], msg });
-        });
+      );
     });
+  });
 });
 
-//  Join Queue 
-app.post("/join", (req, res) => {
-    const { name } = req.body;
+// --- End match (winner) for a court
+app.get("/court/:cid/end", (req, res) => {
+  const cid = Number(req.params.cid);
+  const winner = req.query.w; // "A" or "B"
+  if (!winner) return res.redirect(`/court/${cid}?msg=nowinner`);
 
-    db.get("SELECT MAX(position) as maxPos FROM queue", (err, row) => {
-        const nextPos = (row?.maxPos || 0) + 1;
-        db.run("INSERT INTO queue (name, matchesPlayed, position) VALUES (?, 0, ?)", [name, nextPos], () => {
-            res.redirect("/");
+  db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+    if (err || !m) return res.redirect(`/court/${cid}?msg=nomatch`);
+
+    let matchesA = m.matchesPlayedA || 0;
+    let matchesB = m.matchesPlayedB || 0;
+    if (winner === "A") matchesA += 1; else matchesB += 1;
+
+    const winnerTeam = winner === "A" ? m.teamA : m.teamB;
+    const loserTeam  = winner === "A" ? m.teamB : m.teamA;
+    const winnerMatches = winner === "A" ? matchesA : matchesB;
+
+    // record history then enqueue loser and maybe winner
+    db.run(
+      "INSERT INTO match_history (teamA, teamB, winner, timestamp, court_id) VALUES (?, ?, ?, ?, ?)",
+      [m.teamA, m.teamB, winnerTeam, Date.now(), cid],
+      (err2) => {
+        if (err2) return res.redirect(`/court/${cid}?msg=error`);
+
+        // helpers to enqueue to same court
+        const enqueue = (name, mp) => new Promise((resolve) => {
+          db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (er, row) => {
+            const nextPos = (row?.maxPos || 0) + 1;
+            db.run("INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, ?, ?, ?)", [name, mp, nextPos, cid], resolve);
+          });
         });
-    });
-});
 
-//  Move Up/Down 
-app.get("/move/:id/:direction", (req, res) => {
-    const { id, direction } = req.params;
+        // always enqueue loser
+        const ops = [enqueue(loserTeam, 0)];
+        let winnerLeaves = winnerMatches >= 2;
+        if (winnerLeaves) ops.push(enqueue(winnerTeam, 0));
 
-    db.get("SELECT id, position FROM queue WHERE id = ?", [id], (err, current) => {
-        if (!current) return res.redirect("/?msg=notfound");
+        Promise.all(ops).then(() => {
+          const need = winnerLeaves ? 2 : 1;
+          // fetch next pairs from this court's queue
+          db.all("SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC LIMIT ?", [cid, need], (err4, nextPairs) => {
+            if (err4) return res.redirect(`/court/${cid}?msg=error`);
+            const staying = [];
+            if (!winnerLeaves) staying.push({ name: winnerTeam, matchesPlayed: winnerMatches });
+            nextPairs.forEach(p => staying.push({ name: p.name, matchesPlayed: p.matchesPlayed }));
 
-        const swapPos = direction === "up" ? current.position - 1 : current.position + 1;
-
-        db.get("SELECT id FROM queue WHERE position = ?", [swapPos], (err2, swapWith) => {
-            if (!swapWith) return res.redirect("/?msg=topOrBottom");
-
-            // Swap positions
-            db.run("UPDATE queue SET position = ? WHERE id = ?", [swapPos, current.id]);
-            db.run("UPDATE queue SET position = ? WHERE id = ?", [current.position, swapWith.id], () => {
-                res.redirect("/");
-            });
-        });
-    });
-});
-
-//  Start Match 
-app.get("/start", (req, res) => {
-    db.all("SELECT * FROM current_match LIMIT 1", (err, existingMatch) => {
-        if (err) return res.sendStatus(500);
-        if (existingMatch.length > 0) return res.redirect("/?msg=active");
-
-        db.all("SELECT * FROM queue ORDER BY position ASC LIMIT 2", (err2, rows) => {
-            if (err2) return res.sendStatus(500);
-            if (rows.length < 2) return res.redirect("/?msg=notenough");
-
-            const pairA = rows[0];
-            const pairB = rows[1];
+            const A = staying[0] || { name: null, matchesPlayed: 0 };
+            const B = staying[1] || { name: null, matchesPlayed: 0 };
 
             db.run(
-                "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB, timestamp) VALUES (?, ?, ?, ?, ?)",
-                [pairA.name, pairB.name, pairA.matchesPlayed, pairB.matchesPlayed, Date.now()],
-                function (err3) {
-                    if (err3) return res.sendStatus(500);
-
-                    // Remove these pairs from queue and normalize positions
-                    db.run("DELETE FROM queue WHERE id IN (?, ?)", [pairA.id, pairB.id], () => {
-                        normalizeQueuePositions(() => res.redirect("/?msg=started"));
-                    });
+              "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?, timestamp=? WHERE court_id = ?",
+              [A.name, A.matchesPlayed, B.name, B.matchesPlayed, Date.now(), cid],
+              () => {
+                if (nextPairs.length > 0) {
+                  const ids = nextPairs.map(x => x.id).join(",");
+                  db.run(`DELETE FROM queue WHERE id IN (${ids}) AND court_id = ?`, [cid], () => {
+                    normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}?msg=nextjoined`));
+                  });
+                } else {
+                  normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}?msg=nextjoined`));
                 }
+              }
             );
+          });
+        }).catch(() => res.redirect(`/court/${cid}?msg=error`));
+      }
+    );
+  });
+});
+
+// --- Reset match: put both back to queue for that court
+app.get("/court/:cid/reset-match", (req, res) => {
+  const cid = Number(req.params.cid);
+
+  db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+    if (err || !m) return res.redirect(`/court/${cid}?msg=nomatch`);
+
+    // DO NOT FILTER WITH Boolean()
+    const names = [m.teamA, m.teamB];
+
+    db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (er, row) => {
+      let nextPos = (row?.maxPos || 0) + 1;
+
+      const ops = names.map((name, idx) => {
+        return new Promise((resolve) => {
+
+          // prevent dropping second team
+          if (!name || name.trim() === "") return resolve();
+
+          db.run(
+            "INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, 0, ?, ?)",
+            [name, nextPos + idx, cid],
+            resolve
+          );
         });
-    });
-});
+      });
 
-//  End Match 
-app.get("/end", (req, res) => {
-    const winner = req.query.w;
-    if (!winner) return res.redirect("/?msg=nowinner");
-
-    db.get("SELECT * FROM current_match LIMIT 1", (err, m) => {
-        if (err || !m) return res.redirect("/?msg=nomatch");
-
-        const teamA = m.teamA;
-        const teamB = m.teamB;
-        let matchesA = m.matchesPlayedA;
-        let matchesB = m.matchesPlayedB;
-
-        if (winner === "A") matchesA += 1;
-        else matchesB += 1;
-
-        const winnerTeam = winner === "A" ? teamA : teamB;
-        const loserTeam = winner === "A" ? teamB : teamA;
-        const winnerMatches = winner === "A" ? matchesA : matchesB;
-
-        db.run(
-            "INSERT INTO match_history (teamA, teamB, winner, timestamp) VALUES (?, ?, ?, ?)",
-            [teamA, teamB, winnerTeam, Date.now()],
-            (err2) => {
-                if (err2) return res.sendStatus(500);
-
-                const enqueue = (name, mp) =>
-                    new Promise((resolve) => {
-                        db.get("SELECT MAX(position) as maxPos FROM queue", (err3, row) => {
-                            const nextPos = (row?.maxPos || 0) + 1;
-                            db.run(
-                                "INSERT INTO queue (name, matchesPlayed, position) VALUES (?, ?, ?)",
-                                [name, mp, nextPos],
-                                resolve
-                            );
-                        });
-                    });
-
-                let enqueueOperations = [];
-
-                enqueueOperations.push(enqueue(loserTeam, 0));
-
-                let winnerLeaves = winnerMatches >= 2;
-                if (winnerLeaves) enqueueOperations.push(enqueue(winnerTeam, 0));
-
-                // Wait until ALL inserts finish
-                Promise.all(enqueueOperations).then(() => {
-
-                    const needed = winnerLeaves ? 2 : 1;
-
-                    db.all(
-                        "SELECT * FROM queue ORDER BY position ASC LIMIT ?",
-                        [needed],
-                        (err4, nextPairs) => {
-
-                            const staying = [];
-
-                            if (!winnerLeaves) {
-                                staying.push({
-                                    name: winnerTeam,
-                                    matchesPlayed: winnerMatches
-                                });
-                            }
-
-                            nextPairs.forEach((p) =>
-                                staying.push({
-                                    name: p.name,
-                                    matchesPlayed: p.matchesPlayed
-                                })
-                            );
-
-                            const A = staying[0] || { name: null, matchesPlayed: 0 };
-                            const B = staying[1] || { name: null, matchesPlayed: 0 };
-
-                            db.run(
-                                "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?, timestamp=?",
-                                [A.name, A.matchesPlayed, B.name, B.matchesPlayed, Date.now()],
-                                () => {
-                                    if (nextPairs.length > 0) {
-                                        const ids = nextPairs.map((x) => x.id).join(",");
-                                        db.run(
-                                            `DELETE FROM queue WHERE id IN (${ids})`,
-                                            () => normalizeQueuePositions(() =>
-                                                res.redirect("/?msg=ended")
-                                            )
-                                        );
-                                    } else {
-                                        normalizeQueuePositions(() =>
-                                            res.redirect("/?msg=ended")
-                                        );
-                                    }
-                                }
-                            );
-                        }
-                    );
-                });
-            }
-        );
-    });
-});
-
-//  Reset Match 
-app.get("/reset-match", (req, res) => {
-    db.all("SELECT * FROM current_match LIMIT 1", (err, match) => {
-        if (err) return res.sendStatus(500);
-        if (match.length === 0) return res.redirect("/?msg=nomatch");
-
-        const m = match[0];
-        const names = [m.teamA, m.teamB];
-
-        db.get("SELECT MAX(position) as maxPos FROM queue", (err, row) => {
-            const nextPos = (row?.maxPos || 0) + 1;
-            names.forEach((name, idx) => {
-                db.run(
-                    "INSERT INTO queue (name, matchesPlayed, position) VALUES (?, 0, ?)",
-                    [name, nextPos + idx]
-                );
-            });
-
-            normalizeQueuePositions(() => {
-                db.run("DELETE FROM current_match", () => res.redirect("/?msg=reset"));
-            });
+      Promise.all(ops).then(() => {
+        normalizeQueuePositions(cid, () => {
+          db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () =>
+            res.redirect(`/court/${cid}?msg=reset`)
+          );
         });
+      });
     });
-});
-
-// Add one match to a side
-app.get("/add-match/:side", (req, res) => {
-    const side = req.params.side; // "A" or "B"
-
-    db.get("SELECT * FROM current_match LIMIT 1", (err, m) => {
-        if (err || !m) return res.redirect("/?msg=nomatch");
-
-        let newA = m.matchesPlayedA;
-        let newB = m.matchesPlayedB;
-
-        if (side === "A") newA++;
-        if (side === "B") newB++;
-
-        db.run(
-            "UPDATE current_match SET matchesPlayedA=?, matchesPlayedB=?",
-            [newA, newB],
-            (err2) => {
-                if (err2) return res.redirect("/?msg=error");
-                res.redirect("/?msg=addedOne");
-            }
-        );
-    });
-});
-
-// Subtract one match from a side
-app.get("/minus-match/:side", (req, res) => {
-    const side = req.params.side; // A or B
-
-    db.get(`SELECT * FROM current_match LIMIT 1`, (err, match) => {
-        if (err || !match) return res.redirect("/?msg=nomatch");
-
-        let current = side === "A" ? match.matchesPlayedA : match.matchesPlayedB;
-
-        // Prevent negative numbers
-        if (current <= 0) return res.redirect("/?msg=invalid");
-
-        const newVal = current - 1;
-
-        const column = side === "A" ? "matchesPlayedA" : "matchesPlayedB";
-
-        db.run(`UPDATE current_match SET ${column} = ? WHERE id = ?`,
-            [newVal, match.id],
-            () => {
-                res.redirect("/");
-            }
-        );
-    });
+  });
 });
 
 
-// Clear Queue 
-app.get("/clear-queue", (req, res) => {
-    db.run("DELETE FROM queue", (err) => {
-        if (err) return res.sendStatus(500);
-        res.redirect("/?msg=queuecleared");
-    });
+// --- add-match (increment) and minus-match for a specific court
+app.get("/court/:cid/add-match/:side", (req, res) => {
+  const cid = Number(req.params.cid);
+  const side = req.params.side; // A or B
+  db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+    if (err || !m) return res.redirect(`/court/${cid}?msg=nomatch`);
+    let a = m.matchesPlayedA || 0, b = m.matchesPlayedB || 0;
+    if (side === "A") a++; else b++;
+    db.run("UPDATE current_match SET matchesPlayedA=?, matchesPlayedB=? WHERE court_id = ?", [a, b, cid], () => res.redirect(`/court/${cid}`));
+  });
 });
 
-//  Match History 
+app.get("/court/:cid/minus-match/:side", (req, res) => {
+  const cid = Number(req.params.cid);
+  const side = req.params.side;
+  db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+    if (err || !m) return res.redirect(`/court/${cid}?msg=nomatch`);
+    const curr = side === "A" ? (m.matchesPlayedA || 0) : (m.matchesPlayedB || 0);
+    if (curr <= 0) return res.redirect(`/court/${cid}?msg=invalid`);
+    const newVal = curr - 1;
+    const column = side === "A" ? "matchesPlayedA" : "matchesPlayedB";
+    db.run(`UPDATE current_match SET ${column}=? WHERE court_id = ?`, [newVal, cid], () => res.redirect(`/court/${cid}`));
+  });
+});
+
+// --- remove one from a court
+app.get("/court/:cid/remove/:id", (req, res) => {
+  const cid = Number(req.params.cid);
+  const id = Number(req.params.id);
+  db.run("DELETE FROM queue WHERE id = ? AND court_id = ?", [id, cid], () => normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`)));
+});
+
+// --- clear queue for a court
+app.get("/court/:cid/clear-queue", (req, res) => {
+  const cid = Number(req.params.cid);
+  db.run("DELETE FROM queue WHERE court_id = ?", [cid], () => res.redirect(`/court/${cid}?msg=queuecleared`));
+});
+
+// --- history: global or per-court
 app.get("/history", (req, res) => {
-    const { msg } = req.query;
-    db.all("SELECT * FROM match_history ORDER BY id DESC", (err, rows) => {
-        res.render("history", { history: rows, msg });
+  db.all("SELECT * FROM match_history ORDER BY id DESC LIMIT 200", (err, rows) => {
+    if (err) rows = [];
+    res.render("history", { history: rows, court: null, msg: req.query.msg });
+  });
+});
+app.get("/court/:cid/history", (req, res) => {
+  const cid = Number(req.params.cid);
+  db.all("SELECT * FROM match_history WHERE court_id = ? ORDER BY id DESC LIMIT 200", [cid], (err, rows) => {
+    if (err) rows = [];
+    db.get("SELECT * FROM courts WHERE id = ?", [cid], (er, court) => {
+      res.render("history", { history: rows, court: court || { id: cid, name: `Court ${cid}` }, msg: req.query.msg });
     });
+  });
 });
 
-// Clear entire match history
-app.get("/clear-history", (req, res) => {
-    db.run("DELETE FROM match_history", (err) => {
-        if (err) return res.sendStatus(500);
-        res.redirect("/history?msg=cleared");
-    });
+// --- clear history (global or per-court)
+app.get("/history/clear", (req, res) => {
+  db.run("DELETE FROM match_history", () => res.redirect("/history?msg=cleared"));
+});
+app.get("/court/:cid/history/clear", (req, res) => {
+  const cid = Number(req.params.cid);
+  db.run("DELETE FROM match_history WHERE court_id = ?", [cid], () => res.redirect(`/court/${cid}/history?msg=cleared`));
 });
 
-
-//  Remove One 
-app.get("/remove/:id", (req, res) => {
-    db.run("DELETE FROM queue WHERE id = ?", [req.params.id], () => {
-        normalizeQueuePositions(() => res.redirect("/"));
-    });
-});
-
+// Start app
 app.listen(3000, () => console.log("Server running on port 3000"));
