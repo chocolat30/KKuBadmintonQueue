@@ -1,4 +1,4 @@
 ## Upcoming
-- [ ] Add clear history
+- [x] Add clear history
 - [x] Add changing match played
-- [ ] Provide more maintainable
+- [ ] Provide more maintainability
