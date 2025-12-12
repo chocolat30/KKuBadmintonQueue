@@ -13,10 +13,10 @@
       <div>
         <% if (court) { %>
           <a href="/court/<%= court.id %>" class="btn btn-outline-secondary">ย้อนกลับ</a>
-          <a href="/court/<%= court.id %>/history/clear" class="btn btn-danger" onclick="return confirm('Clear this court history?')">ล้างทั้งหมด</a>
+          <a href="/court/<%= court.id %>/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นของคอร์ทนี้?')">ล้างทั้งหมด</a>
         <% } else { %>
           <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
-          <a href="/history/clear" class="btn btn-danger" onclick="return confirm('Clear ALL history?')">ล้างทั้งหมด</a>
+          <a href="/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นทั้งหมดทุกคอร์ท?')">ล้างทั้งหมด</a>
         <% } %>
       </div>
     </div>
