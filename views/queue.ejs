@@ -3,7 +3,7 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title><%= court.name %> - Queue</title>
+  <title><%= court.name %> - คิว</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <style>
     .btn { min-width: 70px; margin-bottom: 6px; }
@@ -17,38 +17,38 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h3><%= court.name %></h3>
       <div>
-        <a href="/" class="btn btn-outline-secondary">Back</a>
-        <a href="/court/<%= court.id %>/history" class="btn btn-outline-primary">History</a>
+        <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
+        <a href="/court/<%= court.id %>/history" class="btn btn-outline-primary">ดูประวัติแมตช์</a>
       </div>
     </div>
 
     <form action="/court/<%= court.id %>/join" method="POST" class="mb-3">
       <div class="input-group">
-        <input name="name" class="form-control" placeholder="Pair name" required />
-        <button class="btn btn-primary">Join</button>
+        <input name="name" class="form-control" placeholder="ชื่อคู่" required />
+        <button class="btn btn-primary">เพิ่มคู่</button>
       </div>
     </form>
 
     <div class="mb-3 d-flex gap-2 queue-actions">
-      <a href="/court/<%= court.id %>/start" class="btn btn-success">Start Match</a>
-      <a href="/court/<%= court.id %>/reset-match" class="btn btn-warning">Reset Match</a>
+      <a href="/court/<%= court.id %>/start" class="btn btn-success">เริ่มแมตช์</a>
+      <a href="/court/<%= court.id %>/reset-match" class="btn btn-warning">รีเซ็ตแมตช์</a>
       <a href="/court/<%= court.id %>/clear-queue" class="btn btn-danger"
-         onclick="return confirm('Clear queue?')">Clear Queue</a>
+         onclick="return confirm('ต้องการลบคิวที่ต่อเอาไว้จะหายไปทั้งหมดใช่หรือไม่?')">ล้างคิวทั้งหมด</a>
       <a href="/court/<%= court.id %>/history/clear" class="btn btn-outline-danger"
-         onclick="return confirm('Clear history for this court?')">Clear History</a>
+         onclick="return confirm('ต้องการลบข้อมูลแมตช์การเล่นทั้งหมดของคอร์ทนี้ใช่หรือไม่??')">ล้างประวัติทั้งหมด</a>
     </div>
 
-    <h5>Current Match</h5>
+    <h5>แมตช์ที่กำลังเล่น</h5>
     <ul class="list-group mb-4">
       <% if (!match || match.length === 0) { %>
-        <li class="list-group-item">No active match</li>
+        <li class="list-group-item">คอร์ทกำลังว่าง</li>
       <% } else { %>
         <% match.forEach(m => { %>
           <li class="list-group-item">
             <div class="mb-3 p-2 rounded" style="background:#e9f7ef">
-              <strong>Team A:</strong> <%= m.teamA %> &nbsp; (Played: <%= m.matchesPlayedA %>)
+              <strong>Team A:</strong> <%= m.teamA %> &nbsp; (เล่นแล้ว: <%= m.matchesPlayedA %> รอบ)
               <div class="mt-2 d-flex flex-wrap gap-2">
-                <a href="/court/<%= court.id %>/end?w=A" class="btn btn-success btn-sm">Team A Won</a>
+                <a href="/court/<%= court.id %>/end?w=A" class="btn btn-success btn-sm">ทีม A ชนะ</a>
                 <% if (m.matchesPlayedA === 0) { %>
                   <a href="/court/<%= court.id %>/add-match/A" class="btn btn-warning btn-sm">+1</a>
                 <% } else if (m.matchesPlayedA === 1) { %>
@@ -58,9 +58,9 @@
             </div>
 
             <div class="mb-3 p-2 rounded" style="background:#fdecea">
-              <strong>Team B:</strong> <%= m.teamB %> &nbsp; (Played: <%= m.matchesPlayedB %>)
+              <strong>Team B:</strong> <%= m.teamB %> &nbsp; (เล่นแล้ว: <%= m.matchesPlayedB %> รอบ)
               <div class="mt-2 d-flex flex-wrap gap-2">
-                <a href="/court/<%= court.id %>/end?w=B" class="btn btn-danger btn-sm">Team B Won</a>
+                <a href="/court/<%= court.id %>/end?w=B" class="btn btn-danger btn-sm">ทีม B ชนะ</a>
                 <% if (m.matchesPlayedB === 0) { %>
                   <a href="/court/<%= court.id %>/add-match/B" class="btn btn-warning btn-sm">+1</a>
                 <% } else if (m.matchesPlayedB === 1) { %>
@@ -69,37 +69,37 @@
               </div>
             </div>
 
-            <div class="text-muted small">Started at: <%= new Date(Number(m.timestamp)).toLocaleString('en-GB') %></div>
+            <div class="text-muted small">เริ่มแมตช์ตอน: <%= new Date(Number(m.timestamp)).toLocaleString('th-TH') %></div>
           </li>
         <% }) %>
       <% } %>
     </ul>
 
-    <h5>Queue</h5>
+    <h5>คิวที่กำลังต่อ ( คู่ )</h5>
     <ul class="list-group mb-4">
       <% if (!queue || queue.length === 0) { %>
-        <li class="list-group-item">Queue is empty</li>
+        <li class="list-group-item">คิวว่าง</li>
       <% } else { %>
         <% queue.forEach((q, i) => { %>
           <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
             <div><strong><%= i+1 %>.</strong> <%= q.name %></div>
             <div class="d-flex flex-wrap gap-2">
               <% if (i > 0) { %>
-                <a href="/court/<%= court.id %>/move/<%= q.id %>/up" class="btn btn-sm btn-outline-secondary">UP</a>
+                <a href="/court/<%= court.id %>/move/<%= q.id %>/up" class="btn btn-sm btn-outline-secondary">เลื่อนขึ้น</a>
               <% } %>
               <% if (i < queue.length - 1) { %>
-                <a href="/court/<%= court.id %>/move/<%= q.id %>/down" class="btn btn-sm btn-outline-secondary">DOWN</a>
+                <a href="/court/<%= court.id %>/move/<%= q.id %>/down" class="btn btn-sm btn-outline-secondary">เลื่อนลง</a>
               <% } %>
-              <a href="/court/<%= court.id %>/remove/<%= q.id %>" class="btn btn-sm btn-outline-danger">Remove</a>
+              <a href="/court/<%= court.id %>/remove/<%= q.id %>" class="btn btn-sm btn-outline-danger">ลบ</a>
             </div>
           </li>
         <% }) %>
       <% } %>
     </ul>
 
-    <% if (msg) { %>
+    <!-- <% if (msg) { %>
       <div class="alert alert-info"><%= msg %></div>
-    <% } %>
+    <% } %> -->
 
   </div>
 </body>

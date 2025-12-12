@@ -10,7 +10,7 @@
 
 <body class="bg-light">
     <div class="container mt-4">
-        <h1 class="mb-4">Courts</h1>
+        <h1 class="mb-4">คอร์ท</h1>
 
         <div class="row g-3">
             <% courts.forEach(c=> { %>
@@ -20,11 +20,11 @@
                             <h5 class="card-title">
                                 <%= c.name %>
                             </h5>
-                            <a href="/court/<%= c.id %>" class="btn btn-primary mb-2 w-100">Open</a>
-                            <a href="/court/<%= c.id %>/history" class="btn btn-secondary mb-2 w-100">History</a>
+                            <a href="/court/<%= c.id %>" class="btn btn-primary mb-2 w-100">เปิด</a>
+                            <a href="/court/<%= c.id %>/history" class="btn btn-secondary mb-2 w-100">ดูประวัติแมตช์</a>
                             <a href="/court/<%= c.id %>/delete" class="btn btn-danger btn-sm"
-                                onclick="return confirm('Delete this court and all its data?')">
-                                Delete Court
+                                onclick="return confirm('ต้องการลบคอร์ทและข้อมูลคิวทั้งหมดใช่หรือไม่?')">
+                                ลบคอร์ด
                             </a>
 
                         </div>
@@ -35,15 +35,15 @@
 
         <hr class="my-4" />
 
-        <h5>Add Court</h5>
+        <h5>เพิ่มคอร์ท</h5>
         <form action="/courts/add" method="POST" class="mb-3">
             <div class="input-group">
-                <input name="name" class="form-control" placeholder="Court name (e.g. Court 2)" />
-                <button class="btn btn-success">Add</button>
+                <input name="name" class="form-control" placeholder="ชื่อคอร์ท (เช่น คอร์ทไอ้ปาม, คอร์ท 6)" />
+                <button class="btn btn-success">เพิ่ม</button>
             </div>
         </form>
 
-        <a href="/history" class="btn btn-outline-primary">View All History</a>
+        <a href="/history" class="btn btn-outline-primary">ดูประวัติแมตช์ทุกคอร์ท</a>
     </div>
 </body>
 
