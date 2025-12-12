@@ -85,10 +85,10 @@
             <div><strong><%= i+1 %>.</strong> <%= q.name %></div>
             <div class="d-flex flex-wrap gap-2">
               <% if (i > 0) { %>
-                <a href="/court/<%= court.id %>/move/<%= q.id %>/up" class="btn btn-sm btn-outline-secondary">เลื่อนขึ้น</a>
+                <a href="/court/<%= court.id %>/move/<%= q.id %>/up" class="btn btn-sm btn-outline-secondary">ขึ้น</a>
               <% } %>
               <% if (i < queue.length - 1) { %>
-                <a href="/court/<%= court.id %>/move/<%= q.id %>/down" class="btn btn-sm btn-outline-secondary">เลื่อนลง</a>
+                <a href="/court/<%= court.id %>/move/<%= q.id %>/down" class="btn btn-sm btn-outline-secondary">ลง</a>
               <% } %>
               <a href="/court/<%= court.id %>/remove/<%= q.id %>" class="btn btn-sm btn-outline-danger">ลบ</a>
             </div>
