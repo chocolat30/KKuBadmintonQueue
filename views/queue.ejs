@@ -10,6 +10,9 @@
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
+  <!-- Load QR code library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
   <style>
     .btn {
       min-width: 70px;
@@ -88,9 +91,13 @@
       <div class="court-actions">
         <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
         <a href="/court/<%= court.id %>/history" class="btn btn-outline-primary">ดูประวัติแมตช์</a>
+        <div id="courtQR" style="width:90px"></div>
       </div>
     </div>
 
+    <div class="text-center mb-3">
+      
+    </div>
 
     <!-- JOIN QUEUE -->
     <form action="/court/<%= court.id %>/join" method="POST" class="mb-3">
@@ -241,6 +248,17 @@
               </ul>
 
   </div>
+
+  <script>
+    const courtId = "<%= court.id %>";
+    const url = `${location.origin}/court/${courtId}`;
+
+    new QRCode(document.getElementById("courtQR"), {
+      text: url,
+      width: 160,
+      height: 160
+    });
+  </script>
 
 </body>
 
