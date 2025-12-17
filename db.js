@@ -97,6 +97,16 @@ db.serialize(() => {
       db.run(`ALTER TABLE match_history ADD COLUMN court_id INTEGER DEFAULT 1`);
   });
 
+  // ========== TABLE: undo_snapshot ==========
+  db.run(`
+  CREATE TABLE IF NOT EXISTS undo_snapshot (
+    court_id INTEGER PRIMARY KEY,
+    data TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+  )
+`);
+
+
 });
 
 module.exports = db;
