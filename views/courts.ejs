@@ -10,6 +10,19 @@
 
 <body class="bg-light">
     <div class="container mt-4">
+
+        <h5>เพิ่มคอร์ท</h5>
+        <form action="/courts/add" method="POST" class="mb-3">
+            <div class="input-group">
+                <input name="name" class="form-control" placeholder="ชื่อคอร์ท (เช่น คอร์ทไอ้ปาม, คอร์ท 6)" />
+                <button class="btn btn-success">เพิ่ม</button>
+            </div>
+        </form>
+
+        <a href="/history" class="btn btn-outline-primary">ดูประวัติแมตช์ทุกคอร์ท</a>
+
+        <hr class="my-4" />
+
         <h1 class="mb-4">คอร์ท</h1>
 
         <div class="row g-3">
@@ -33,17 +46,7 @@
                 <% }) %>
         </div>
 
-        <hr class="my-4" />
-
-        <h5>เพิ่มคอร์ท</h5>
-        <form action="/courts/add" method="POST" class="mb-3">
-            <div class="input-group">
-                <input name="name" class="form-control" placeholder="ชื่อคอร์ท (เช่น คอร์ทไอ้ปาม, คอร์ท 6)" />
-                <button class="btn btn-success">เพิ่ม</button>
-            </div>
-        </form>
-
-        <a href="/history" class="btn btn-outline-primary">ดูประวัติแมตช์ทุกคอร์ท</a>
+        
     </div>
 </body>
 

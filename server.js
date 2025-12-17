@@ -369,6 +369,11 @@ app.get("/court/:cid/history/clear", (req, res) => {
   db.run("DELETE FROM match_history WHERE court_id = ?", [cid], () => res.redirect(`/court/${cid}/history?msg=cleared`));
 });
 
+// --- clear history (global)
+app.get("/history/clear", (req, res) => {
+  db.run("DELETE FROM match_history", () => res.redirect("/history?msg=cleared"));
+});
+
 // --- End match (winner) for a court
 app.get("/court/:cid/end", (req, res) => {
   const cid = Number(req.params.cid);
