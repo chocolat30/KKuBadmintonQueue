@@ -484,7 +484,9 @@ app.get("/court/:cid/history", (req, res) => {
 // --- clear queue for a court
 app.get("/court/:cid/clear-queue", (req, res) => {
   const cid = Number(req.params.cid);
+  saveUndoSnapshot(cid, () => {
   db.run("DELETE FROM queue WHERE court_id = ?", [cid], () => res.redirect(`/court/${cid}?msg=queuecleared`));
+  });
 });
 
 // Start server
