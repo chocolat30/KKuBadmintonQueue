@@ -327,10 +327,28 @@ app.get("/court/:cid/reset-match", (req, res) => {
             db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () =>
               res.redirect(`/court/${cid}?msg=reset`)
             );
-          });
+          });		
         });
       });
     });
+  });
+});
+
+// Remove one from court
+app.get("/court/:cid/remove/:id", (req, res) => {
+  const cid = Number(req.params.cid);
+  const id = Number(req.params.id);
+
+  saveUndoSnapshot(cid, () => {
+    db.run(
+      "DELETE FROM queue WHERE id = ? AND court_id = ?",
+      [id, cid],
+      () => {
+        normalizeQueuePositions(cid, () => {
+          res.redirect(`/court/${cid}`);
+        });
+      }
+    );
   });
 });
 
