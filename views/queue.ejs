@@ -91,7 +91,7 @@
       <div class="court-actions">
         <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
         <a href="/court/<%= court.id %>/history" class="btn btn-outline-primary">ดูประวัติแมตช์</a>
-        <div id="courtQR" style="width:90px"></div>
+        <div id="courtQR"></div>
       </div>
     </div>
 
@@ -255,8 +255,8 @@
 
     new QRCode(document.getElementById("courtQR"), {
       text: url,
-      width: 160,
-      height: 160
+      width: 100,
+      height: 100
     });
   </script>
 
