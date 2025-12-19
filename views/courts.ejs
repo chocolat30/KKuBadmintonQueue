@@ -26,32 +26,39 @@
         <h1 class="mb-4">คอร์ท</h1>
 
         <div class="row g-3">
-            <% courts.forEach(c=> { %>
-                <div class="col-12 col-sm-6 col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <%= c.name %>
-                            </h5>
-                            <a href="/court/<%= c.id %>" class="btn btn-primary mb-2 w-100">เปิด</a>
-                            <a href="/court/<%= c.id %>/history" class="btn btn-secondary mb-2 w-100">ดูประวัติแมตช์</a>
-                            <a href="/court/<%= c.id %>/delete" class="btn btn-danger btn-sm"
-                                onclick="return confirm('ต้องการลบคอร์ทและข้อมูลคิวทั้งหมดใช่หรือไม่?')">
-                                ลบคอร์ด
-                            </a>
-
-                        </div>
-                    </div>
+            <% if (!courts || courts.length===0) { %>
+                <div class="alert alert-secondary text-center">
+                    ไม่มีคอร์ทในระบบ
                 </div>
-                <% }) %>
+                <% } else { %>
+                    <% courts.forEach(c=> { %>
+                        <div class="col-12 col-sm-6 col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <%= c.name %>
+                                    </h5>
+                                    <a href="/court/<%= c.id %>" class="btn btn-primary mb-2 w-100">เปิด</a>
+                                    <a href="/court/<%= c.id %>/history"
+                                        class="btn btn-secondary mb-2 w-100">ดูประวัติแมตช์</a>
+                                    <a href="/court/<%= c.id %>/delete" class="btn btn-danger btn-sm"
+                                        onclick="return confirm('ต้องการลบคอร์ทและข้อมูลคิวทั้งหมดใช่หรือไม่?')">
+                                        ลบคอร์ด
+                                    </a>
+
+                                </div>
+                            </div>
+                        </div>
+                        <% }) %>
+                            <% } %>
         </div>
 
-        
+
     </div>
 </body>
 
 <footer class="app-footer text-center text-muted">
-  Made by <a href="https://github.com/chocolat30" target="_blank">P.Raccoon</a> | For the gang :-))
+    Made by <a href="https://github.com/chocolat30" target="_blank">P.Raccoon</a> | For the gang :-))
 </footer>
 
 </html>
