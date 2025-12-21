@@ -96,7 +96,7 @@
     </div>
 
     <div class="text-center mb-3">
-      
+
     </div>
 
     <!-- JOIN QUEUE -->
@@ -221,11 +221,29 @@
                   <% } else { %>
                     <% queue.forEach((q, i)=> { %>
                       <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
-                        <div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
                           <strong>
                             <%= i + 1 %>.
                           </strong>
-                          <%= q.name %>
+
+                          <!-- NAME TEXT -->
+                          <span id="name-text-<%= q.id %>">
+                            <%= q.name %>
+                          </span>
+
+                          <!-- EDIT BUTTON -->
+                          <button id="edit-btn-<%= q.id %>" class="btn btn-sm btn-outline-primary" type="button"
+                            onclick="enableEdit('<%= q.id %>')">
+                            แก้ชื่อ
+                          </button>
+
+                          <!-- EDIT FORM (hidden) -->
+                          <form id="edit-form-<%= q.id %>" action="/court/<%= court.id %>/rename/<%= q.id %>"
+                            method="POST" class="d-none d-flex align-items-center gap-2">
+                            <input name="name" value="<%= q.name %>" class="form-control form-control-sm"
+                              style="width:140px" required autofocus />
+                            <button class="btn btn-sm btn-outline-secondary">แก้</button>
+                          </form>
                         </div>
 
                         <div class="d-flex flex-wrap gap-2">
@@ -258,6 +276,13 @@
       width: 100,
       height: 100
     });
+  </script>
+  <script>
+    function enableEdit(id) {
+      document.getElementById(`name-text-${id}`).classList.add("d-none");
+      document.getElementById(`edit-btn-${id}`).classList.add("d-none");
+      document.getElementById(`edit-form-${id}`).classList.remove("d-none");
+    }
   </script>
 
 </body>

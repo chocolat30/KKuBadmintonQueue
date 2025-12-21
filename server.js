@@ -352,6 +352,25 @@ app.get("/court/:cid/remove/:id", (req, res) => {
   });
 });
 
+// Rename queue name 
+app.post("/court/:cid/rename/:id", (req, res) => {
+  const cid = Number(req.params.cid);
+  const id = Number(req.params.id);
+  const newName = (req.body.name || "").trim();
+
+  if (!newName) return res.redirect(`/court/${cid}`);
+
+  // snapshot for undo 
+  saveUndoSnapshot(cid, () => {
+    db.run(
+      "UPDATE queue SET name = ? WHERE id = ? AND court_id = ?",
+      [newName, id, cid],
+      () => res.redirect(`/court/${cid}`)
+    );
+  });
+});
+
+
 // --- add-match (increment) and minus-match for a specific court
 app.get("/court/:cid/add-match/:side", (req, res) => {
   const cid = Number(req.params.cid);
