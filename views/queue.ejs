@@ -9,9 +9,8 @@
   </title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-
-  <!-- Load QR code library -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
   <style>
     .btn {
@@ -67,15 +66,34 @@
     .court-title {
       max-width: 60%;
       white-space: normal;
-      /* allow wrap */
       word-break: break-word;
-      /* break long words */
       margin-bottom: 0;
     }
 
     .court-actions {
       flex-shrink: 0;
-      /* prevent buttons from being squeezed */
+    }
+
+    .live-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background-color: #28a745;
+      border-radius: 50%;
+      margin-left: 8px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+      100% {
+        opacity: 1;
+      }
     }
   </style>
 </head>
@@ -87,6 +105,7 @@
     <div class="d-flex justify-content-between align-items-start mb-3">
       <h3 class="court-title">
         <%= court.name %>
+        <span class="live-indicator" id="liveIndicator"></span>
       </h3>
       <div class="court-actions">
         <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
@@ -95,15 +114,11 @@
       </div>
     </div>
 
-    <div class="text-center mb-3">
-
-    </div>
-
     <!-- JOIN QUEUE -->
-    <form action="/court/<%= court.id %>/join" method="POST" class="mb-3">
+    <form action="/court/<%= court.id %>/join" method="POST" class="mb-3" id="joinForm">
       <div class="input-group">
-        <input name="name" class="form-control" placeholder="ชื่อคู่" required />
-        <button class="btn btn-primary">เพิ่มคู่</button>
+        <input name="name" id="playerNameInput" class="form-control" placeholder="ชื่อคู่" required />
+        <button class="btn btn-primary" type="submit">เพิ่มคู่</button>
       </div>
     </form>
 
@@ -111,18 +126,16 @@
     <div class="mb-4 d-flex gap-2 queue-actions">
       <a href="/court/<%= court.id %>/start" class="btn btn-success">เริ่มแมตช์</a>
       <a href="/court/<%= court.id %>/reset-match" class="btn btn-warning">รีเซ็ตแมตช์</a>
-
       <a href="/court/<%= court.id %>/clear-queue" class="btn btn-danger"
         onclick="return confirm('ต้องการลบคิวทั้งหมดใช่หรือไม่?')">
         ล้างคิวทั้งหมด
       </a>
-
       <a href="/court/<%= court.id %>/history/clear" class="btn btn-outline-danger"
-        onclick="return confirm('ต้องการลบประวัติทั้งหมดของคอร์ทนี้ใช่หรือไม่?')">
-        ล้างประวัติทั้งหมด
+        onclick="return confirm('ต้องการลบประวัติแมตช์ของคอร์ทนี้ใช่หรือไม่?')">
+        ล้างประวัติ
       </a>
       <a href="/court/<%= court.id %>/undo" class="btn btn-outline-dark"
-        onclick="return confirm('ต้องการย้อนกลับคิวเมื่อกี้ใช่ไหม?')">
+        onclick="return confirm('ต้องการย้อนกลับคิวเมื่อครั้งก่อนใช่หรือไม่?')">
         Undo
       </a>
     </div>
@@ -130,159 +143,166 @@
     <!-- ACTIVE MATCH -->
     <h4 class="mb-3">แมตช์ที่กำลังเล่น</h4>
 
-    <% if (!match || match.length===0) { %>
+    <div id="matchContainer">
       <div class="alert alert-secondary text-center">
-        คอร์ทกำลังว่าง
+        คอร์ทว่าง
       </div>
-      <% } else { %>
+    </div>
 
-        <% match.forEach(m=> { %>
+    <!-- QUEUE -->
+    <h4 class="mb-3">คิวที่กำลังต่อ (คู่)</h4>
 
-          <div class="active-match-card mb-4">
-
-            <div class="row align-items-center g-3">
-
-              <!-- TEAM A -->
-              <div class="col-md-5">
-                <div class="team-box bg-success-subtle">
-                  <div class="team-name text-success">
-                    Team A<br>
-                    <%= m.teamA %>
-                  </div>
-
-                  <div class="team-meta mt-1">
-                    เล่นแล้ว: <%= m.matchesPlayedA %> รอบ
-                  </div>
-
-                  <div class="mt-3 d-grid gap-2">
-                    <a href="/court/<%= court.id %>/end?w=A" class="btn btn-success btn-lg">
-                      ทีม A ชนะ
-                    </a>
-
-                    <% if (m.matchesPlayedA===0) { %>
-                      <a href="/court/<%= court.id %>/add-match/A" class="btn btn-warning">+1</a>
-                      <% } else { %>
-                        <a href="/court/<%= court.id %>/minus-match/A" class="btn btn-secondary">-1</a>
-                        <% } %>
-                  </div>
-                </div>
-              </div>
-
-              <!-- VS -->
-              <div class="col-md-2 text-center">
-                <div class="vs-badge">VS</div>
-              </div>
-
-              <!-- TEAM B -->
-              <div class="col-md-5">
-                <div class="team-box bg-danger-subtle">
-                  <div class="team-name text-danger">
-                    Team B<br>
-                    <%= m.teamB %>
-                  </div>
-
-                  <div class="team-meta mt-1">
-                    เล่นแล้ว: <%= m.matchesPlayedB %> รอบ
-                  </div>
-
-                  <div class="mt-3 d-grid gap-2">
-                    <a href="/court/<%= court.id %>/end?w=B" class="btn btn-danger btn-lg">
-                      ทีม B ชนะ
-                    </a>
-
-                    <% if (m.matchesPlayedB===0) { %>
-                      <a href="/court/<%= court.id %>/add-match/B" class="btn btn-warning">+1</a>
-                      <% } else { %>
-                        <a href="/court/<%= court.id %>/minus-match/B" class="btn btn-secondary">-1</a>
-                        <% } %>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            <div class="text-muted text-center small mt-3">
-              เริ่มแมตช์เมื่อ:
-              <%= new Date(Number(m.timestamp)).toLocaleString('th-TH') %>
-            </div>
-
-          </div>
-
-          <% }) %>
-
-            <% } %>
-
-              <!-- QUEUE -->
-              <h4 class="mb-3">คิวที่กำลังต่อ (คู่)</h4>
-
-              <ul class="list-group mb-4">
-                <% if (!queue || queue.length===0) { %>
-                  <li class="list-group-item text-center">คิวว่าง</li>
-                  <% } else { %>
-                    <% queue.forEach((q, i)=> { %>
-                      <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                          <strong>
-                            <%= i + 1 %>.
-                          </strong>
-
-                          <!-- NAME TEXT -->
-                          <span id="name-text-<%= q.id %>">
-                            <%= q.name %>
-                          </span>
-
-                          <!-- EDIT BUTTON -->
-                          <button id="edit-btn-<%= q.id %>" class="btn btn-sm btn-outline-primary" type="button"
-                            onclick="enableEdit('<%= q.id %>')">
-                            แก้ชื่อ
-                          </button>
-
-                          <!-- EDIT FORM (hidden) -->
-                          <form id="edit-form-<%= q.id %>" action="/court/<%= court.id %>/rename/<%= q.id %>"
-                            method="POST" class="d-none d-flex align-items-center gap-2">
-                            <input name="name" value="<%= q.name %>" class="form-control form-control-sm"
-                              style="width:140px" required autofocus />
-                            <button class="btn btn-sm btn-outline-secondary">แก้</button>
-                          </form>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2">
-                          <% if (i> 0) { %>
-                            <a href="/court/<%= court.id %>/move/<%= q.id %>/up"
-                              class="btn btn-sm btn-outline-secondary">ขึ้น</a>
-                            <% } %>
-
-                              <% if (i < queue.length - 1) { %>
-                                <a href="/court/<%= court.id %>/move/<%= q.id %>/down"
-                                  class="btn btn-sm btn-outline-secondary">ลง</a>
-                                <% } %>
-
-                                  <a href="/court/<%= court.id %>/remove/<%= q.id %>"
-                                    class="btn btn-sm btn-outline-danger">ลบ</a>
-                        </div>
-                      </li>
-                      <% }) %>
-                        <% } %>
-              </ul>
+    <ul class="list-group mb-4" id="queueContainer">
+      <li class="list-group-item text-center">คิววาง</li>
+    </ul>
 
   </div>
 
   <script>
     const courtId = "<%= court.id %>";
-    const url = `${location.origin}/court/${courtId}`;
+    const socket = io();
 
+    // Generate QR Code
+    const url = `${location.origin}/court/${courtId}`;
     new QRCode(document.getElementById("courtQR"), {
       text: url,
       width: 100,
       height: 100
     });
-  </script>
-  <script>
+
+    // Join court room on page load
+    socket.emit("join-court", courtId);
+
+    // Listen for court state updates
+    socket.on(`court:${courtId}`, (data) => {
+      updateMatchDisplay(data.match);
+      updateQueueDisplay(data.queue);
+      updateLiveIndicator();
+    });
+
+    // Update match display
+    function updateMatchDisplay(match) {
+      const container = document.getElementById("matchContainer");
+      
+      if (!match) {
+        container.innerHTML = '<div class="alert alert-secondary text-center">คอร์ทว่าง</div>';
+        return;
+      }
+
+      const m = match;
+      container.innerHTML = `
+        <div class="active-match-card mb-4">
+          <div class="row align-items-center g-3">
+            <!-- TEAM A -->
+            <div class="col-md-5">
+              <div class="team-box bg-success-subtle">
+                <div class="team-name text-success">
+                  Team A<br>
+                  ${escapeHtml(m.teamA)}
+                </div>
+                <div class="team-meta mt-1">
+                  เล่นแล้ว: ${m.matchesPlayedA} รอบ
+                </div>
+                <div class="mt-3 d-grid gap-2">
+                  <a href="/court/${courtId}/end?w=A" class="btn btn-success btn-lg">ทีม A ชนะ</a>
+                  ${m.matchesPlayedA === 0 
+                    ? `<a href="/court/${courtId}/add-match/A" class="btn btn-warning">+1</a>` 
+                    : `<a href="/court/${courtId}/minus-match/A" class="btn btn-secondary">-1</a>`
+                  }
+                </div>
+              </div>
+            </div>
+            <!-- VS -->
+            <div class="col-md-2 text-center">
+              <div class="vs-badge">VS</div>
+            </div>
+            <!-- TEAM B -->
+            <div class="col-md-5">
+              <div class="team-box bg-danger-subtle">
+                <div class="team-name text-danger">
+                  Team B<br>
+                  ${escapeHtml(m.teamB)}
+                </div>
+                <div class="team-meta mt-1">
+                  เล่นแล้ว: ${m.matchesPlayedB} รอบ
+                </div>
+                <div class="mt-3 d-grid gap-2">
+                  <a href="/court/${courtId}/end?w=B" class="btn btn-danger btn-lg">ทีม B ชนะ</a>
+                  ${m.matchesPlayedB === 0 
+                    ? `<a href="/court/${courtId}/add-match/B" class="btn btn-warning">+1</a>` 
+                    : `<a href="/court/${courtId}/minus-match/B" class="btn btn-secondary">-1</a>`
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="text-muted text-center small mt-3">
+            เริ่มแมตช์เมื่อ: ${new Date(Number(m.timestamp)).toLocaleString('th-TH')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Update queue display
+    function updateQueueDisplay(queue) {
+      const container = document.getElementById("queueContainer");
+      
+      if (!queue || queue.length === 0) {
+        container.innerHTML = '<li class="list-group-item text-center">คิววาง</li>';
+        return;
+      }
+
+      container.innerHTML = queue.map((q, i) => `
+        <li class="list-group-item">
+          <div class="d-flex align-items-center gap-2 mb-2" style="flex-wrap: wrap;">
+            <strong>${i + 1}.</strong>
+            <span id="name-text-${q.id}" style="word-break: break-word; flex: 1 1 auto;">${escapeHtml(q.name)}</span>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <button id="edit-btn-${q.id}" class="btn btn-sm btn-outline-primary" type="button"
+              onclick="enableEdit('${q.id}')">แก้ชื่อ</button>
+            <form id="edit-form-${q.id}" action="/court/${courtId}/rename/${q.id}" method="POST"
+              class="d-none d-flex align-items-center gap-2">
+              <input name="name" value="${escapeHtml(q.name)}" class="form-control form-control-sm"
+                style="width:140px" maxlength="100" required autofocus />
+              <button class="btn btn-sm btn-outline-secondary" type="submit">แก้</button>
+            </form>
+            ${i > 0 ? `<a href="/court/${courtId}/move/${q.id}/up" class="btn btn-sm btn-outline-secondary">ขึ้น</a>` : ''}
+            ${i < queue.length - 1 ? `<a href="/court/${courtId}/move/${q.id}/down" class="btn btn-sm btn-outline-secondary">ลง</a>` : ''}
+            <a href="/court/${courtId}/remove/${q.id}" class="btn btn-sm btn-outline-danger">ลบ</a>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    // Helper to escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Enable edit mode
     function enableEdit(id) {
       document.getElementById(`name-text-${id}`).classList.add("d-none");
       document.getElementById(`edit-btn-${id}`).classList.add("d-none");
       document.getElementById(`edit-form-${id}`).classList.remove("d-none");
     }
+
+    // Update live indicator visibility
+    function updateLiveIndicator() {
+      const indicator = document.getElementById("liveIndicator");
+      indicator.style.backgroundColor = "#28a745";
+    }
+
+    // Show offline when disconnected
+    socket.on("disconnect", () => {
+      document.getElementById("liveIndicator").style.backgroundColor = "#dc3545";
+    });
+
+    socket.on("connect", () => {
+      socket.emit("join-court", courtId);
+    });
   </script>
 
 </body>

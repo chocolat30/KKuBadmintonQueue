@@ -3,10 +3,36 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const db = require("./db");
 const app = express();
+const http = require("http");
+const server = http.createServer(app);
+const { Server } = require("socket.io");
+const io = new Server(server, {
+  cors: { origin: "*" }
+});
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
+
+// Broadcast court state to all clients
+function broadcastCourtState(court_id) {
+  db.all(
+    "SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC",
+    [court_id],
+    (e1, queue) => {
+      db.get(
+        "SELECT * FROM current_match WHERE court_id = ? LIMIT 1",
+        [court_id],
+        (e2, match) => {
+          io.emit(`court:${court_id}`, {
+            queue: queue || [],
+            match: match || null
+          });
+        }
+      );
+    }
+  );
+}
 
 // undo helper
 function saveUndoSnapshot(court_id, cb) {
@@ -65,7 +91,11 @@ function normalizeQueuePositions(court_id, callback) {
         });
       });
       Promise.all(updates)
-        .then(() => callback && callback())
+        .then(() => {
+          callback && callback();
+          // Broadcast after normalizing
+          broadcastCourtState(court_id);
+        })
         .catch(callback);
     }
   );
@@ -86,7 +116,6 @@ app.post("/courts/add", (req, res) => {
   db.all("SELECT id FROM courts ORDER BY id ASC", (err, rows) => {
     if (err) return res.redirect("/?msg=error");
 
-    // Find smallest missing ID (slot)
     let newId = 1;
     for (let i = 0; i < rows.length; i++) {
       if (rows[i].id !== i + 1) {
@@ -147,7 +176,10 @@ app.post("/court/:cid/join", (req, res) => {
         db.run(
           "INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, 0, ?, ?)",
           [name, nextPos, cid],
-          () => res.redirect(`/court/${cid}`)
+          () => {
+            broadcastCourtState(cid);
+            res.redirect(`/court/${cid}`);
+          }
         );
       }
     );
@@ -287,14 +319,17 @@ app.get("/court/:cid/undo", (req, res) => {
         db.run(
           "DELETE FROM undo_snapshot WHERE court_id=?",
           [cid],
-          () => res.redirect(`/court/${cid}?msg=undone`)
+          () => {
+            broadcastCourtState(cid);
+            res.redirect(`/court/${cid}?msg=undone`);
+          }
         );
       });
     }
   );
 });
 
-// --- Reset match: put both back to queue for that court
+// Reset match
 app.get("/court/:cid/reset-match", (req, res) => {
   const cid = Number(req.params.cid);
 
@@ -302,7 +337,6 @@ app.get("/court/:cid/reset-match", (req, res) => {
     db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
       if (err || !m) return res.redirect(`/court/${cid}?msg=nomatch`);
 
-      // DO NOT FILTER WITH Boolean()
       const names = [m.teamA, m.teamB];
 
       db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (er, row) => {
@@ -310,8 +344,6 @@ app.get("/court/:cid/reset-match", (req, res) => {
 
         const ops = names.map((name, idx) => {
           return new Promise((resolve) => {
-
-            // prevent dropping second team
             if (!name || name.trim() === "") return resolve();
 
             db.run(
@@ -324,9 +356,10 @@ app.get("/court/:cid/reset-match", (req, res) => {
 
         Promise.all(ops).then(() => {
           normalizeQueuePositions(cid, () => {
-            db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () =>
-              res.redirect(`/court/${cid}?msg=reset`)
-            );
+            db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () => {
+              broadcastCourtState(cid);
+              res.redirect(`/court/${cid}?msg=reset`);
+            });
           });		
         });
       });
@@ -360,27 +393,31 @@ app.post("/court/:cid/rename/:id", (req, res) => {
 
   if (!newName) return res.redirect(`/court/${cid}`);
 
-  // snapshot for undo 
   saveUndoSnapshot(cid, () => {
     db.run(
       "UPDATE queue SET name = ? WHERE id = ? AND court_id = ?",
       [newName, id, cid],
-      () => res.redirect(`/court/${cid}`)
+      () => {
+        broadcastCourtState(cid);
+        res.redirect(`/court/${cid}`);
+      }
     );
   });
 });
 
-
-// --- add-match (increment) and minus-match for a specific court
+// Add/minus match
 app.get("/court/:cid/add-match/:side", (req, res) => {
   const cid = Number(req.params.cid);
-  const side = req.params.side; // A or B
+  const side = req.params.side;
   saveUndoSnapshot(cid, () => {
     db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
       if (err || !m) return res.redirect(`/court/${cid}?msg=nomatch`);
       let a = m.matchesPlayedA || 0, b = m.matchesPlayedB || 0;
       if (side === "A") a++; else b++;
-      db.run("UPDATE current_match SET matchesPlayedA=?, matchesPlayedB=? WHERE court_id = ?", [a, b, cid], () => res.redirect(`/court/${cid}`));
+      db.run("UPDATE current_match SET matchesPlayedA=?, matchesPlayedB=? WHERE court_id = ?", [a, b, cid], () => {
+        broadcastCourtState(cid);
+        res.redirect(`/court/${cid}`);
+      });
     });
   });
 });
@@ -395,26 +432,29 @@ app.get("/court/:cid/minus-match/:side", (req, res) => {
       if (curr <= 0) return res.redirect(`/court/${cid}?msg=invalid`);
       const newVal = curr - 1;
       const column = side === "A" ? "matchesPlayedA" : "matchesPlayedB";
-      db.run(`UPDATE current_match SET ${column}=? WHERE court_id = ?`, [newVal, cid], () => res.redirect(`/court/${cid}`));
+      db.run(`UPDATE current_match SET ${column}=? WHERE court_id = ?`, [newVal, cid], () => {
+        broadcastCourtState(cid);
+        res.redirect(`/court/${cid}`);
+      });
     });
   });
 });
 
-// clear court history
+// Clear court history
 app.get("/court/:cid/history/clear", (req, res) => {
   const cid = Number(req.params.cid);
   db.run("DELETE FROM match_history WHERE court_id = ?", [cid], () => res.redirect(`/court/${cid}/history?msg=cleared`));
 });
 
-// --- clear history (global)
+// Clear global history
 app.get("/history/clear", (req, res) => {
   db.run("DELETE FROM match_history", () => res.redirect("/history?msg=cleared"));
 });
 
-// --- End match (winner) for a court
+// End match (winner) for a court
 app.get("/court/:cid/end", (req, res) => {
   const cid = Number(req.params.cid);
-  const winner = req.query.w; // "A" or "B"
+  const winner = req.query.w;
   if (!winner) return res.redirect(`/court/${cid}?msg=nowinner`);
 
   saveUndoSnapshot(cid, () => {
@@ -429,14 +469,12 @@ app.get("/court/:cid/end", (req, res) => {
       const loserTeam = winner === "A" ? m.teamB : m.teamA;
       const winnerMatches = winner === "A" ? matchesA : matchesB;
 
-      // record history then enqueue loser and maybe winner
       db.run(
         "INSERT INTO match_history (teamA, teamB, winner, timestamp, court_id) VALUES (?, ?, ?, ?, ?)",
         [m.teamA, m.teamB, winnerTeam, Date.now(), cid],
         (err2) => {
           if (err2) return res.redirect(`/court/${cid}?msg=error`);
 
-          // helpers to enqueue to same court
           const enqueue = (name, mp) => new Promise((resolve) => {
             db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (er, row) => {
               const nextPos = (row?.maxPos || 0) + 1;
@@ -444,14 +482,12 @@ app.get("/court/:cid/end", (req, res) => {
             });
           });
 
-          // always enqueue loser
           const ops = [enqueue(loserTeam, 0)];
           let winnerLeaves = winnerMatches >= 2;
           if (winnerLeaves) ops.push(enqueue(winnerTeam, 0));
 
           Promise.all(ops).then(() => {
             const need = winnerLeaves ? 2 : 1;
-            // fetch next pairs from this court's queue
             db.all("SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC LIMIT ?", [cid, need], (err4, nextPairs) => {
               if (err4) return res.redirect(`/court/${cid}?msg=error`);
               const staying = [];
@@ -483,7 +519,7 @@ app.get("/court/:cid/end", (req, res) => {
   });
 });
 
-// Delete court, no shifting
+// Delete court
 app.get("/court/:cid/delete", (req, res) => {
   const cid = Number(req.params.cid);
 
@@ -498,13 +534,14 @@ app.get("/court/:cid/delete", (req, res) => {
   });
 });
 
-// global history and per-court
+// History pages
 app.get("/history", (req, res) => {
   db.all("SELECT * FROM match_history ORDER BY id DESC LIMIT 200", (err, rows) => {
     if (err) rows = [];
     res.render("history", { history: rows, court: null, msg: req.query.msg });
   });
 });
+
 app.get("/court/:cid/history", (req, res) => {
   const cid = Number(req.params.cid);
 
@@ -518,13 +555,36 @@ app.get("/court/:cid/history", (req, res) => {
   });
 });
 
-// --- clear queue for a court
+// Clear queue for a court
 app.get("/court/:cid/clear-queue", (req, res) => {
   const cid = Number(req.params.cid);
   saveUndoSnapshot(cid, () => {
-  db.run("DELETE FROM queue WHERE court_id = ?", [cid], () => res.redirect(`/court/${cid}?msg=queuecleared`));
+    db.run("DELETE FROM queue WHERE court_id = ?", [cid], () => {
+      broadcastCourtState(cid);
+      res.redirect(`/court/${cid}?msg=queuecleared`);
+    });
+  });
+});
+
+// Socket.IO connections
+io.on("connection", (socket) => {
+  console.log("New client connected:", socket.id);
+
+  socket.on("join-court", (courtId) => {
+    socket.join(`court:${courtId}`);
+    console.log(`Client ${socket.id} joined court:${courtId}`);
+    broadcastCourtState(courtId);
+  });
+
+  socket.on("leave-court", (courtId) => {
+    socket.leave(`court:${courtId}`);
+    console.log(`Client ${socket.id} left court:${courtId}`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
   });
 });
 
 // Start server
-app.listen(3000, () => console.log("Server running on port 3000"));
+server.listen(3000, () => console.log("Server running on port 3000"));
