@@ -1,4 +1,3 @@
-// server.js
 const express = require("express");
 const bodyParser = require("body-parser");
 const db = require("./db");
@@ -12,6 +11,7 @@ const io = new Server(server, {
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 app.use(express.static("public"));
 
 // Broadcast court state to all clients
@@ -186,44 +186,76 @@ app.post("/court/:cid/join", (req, res) => {
   });
 });
 
-// Move queue up/down
-app.get("/court/:cid/move/:id/:direction", (req, res) => {
+// Reorder queue via drag and drop
+app.post("/court/:cid/reorder-queue", (req, res) => {
   const cid = Number(req.params.cid);
+  const { order } = req.body;
+  
+  if (!order || !Array.isArray(order)) {
+    return res.status(400).json({ error: "Invalid order" });
+  }
 
   saveUndoSnapshot(cid, () => {
-    const id = Number(req.params.id);
-    const direction = req.params.direction;
-
-    db.get(
-      "SELECT id, position FROM queue WHERE id = ? AND court_id = ?",
-      [id, cid],
-      (err, current) => {
-        if (!current) return res.redirect(`/court/${cid}`);
-        const swapPos =
-          direction === "up"
-            ? current.position - 1
-            : current.position + 1;
-
-        db.get(
-          "SELECT id FROM queue WHERE position = ? AND court_id = ?",
-          [swapPos, cid],
-          (err2, swapWith) => {
-            if (!swapWith) return res.redirect(`/court/${cid}`);
-            db.run("UPDATE queue SET position=? WHERE id=?", [
-              swapPos,
-              current.id
-            ]);
-            db.run(
-              "UPDATE queue SET position=? WHERE id=?",
-              [current.position, swapWith.id],
-              () => normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`))
-            );
-          }
+    const updates = order.map(item => {
+      return new Promise((resolve, reject) => {
+        db.run(
+          "UPDATE queue SET position = ? WHERE id = ? AND court_id = ?",
+          [item.position, item.id, cid],
+          e => (e ? reject(e) : resolve())
         );
-      }
-    );
+      });
+    });
+
+    Promise.all(updates)
+      .then(() => {
+        broadcastCourtState(cid);
+        res.json({ success: true });
+      })
+      .catch(err => {
+        console.error("Reorder error:", err);
+        res.status(500).json({ error: "Reorder failed" });
+      });
   });
 });
+
+// // Move queue up/down
+// app.get("/court/:cid/move/:id/:direction", (req, res) => {
+//   const cid = Number(req.params.cid);
+
+//   saveUndoSnapshot(cid, () => {
+//     const id = Number(req.params.id);
+//     const direction = req.params.direction;
+
+//     db.get(
+//       "SELECT id, position FROM queue WHERE id = ? AND court_id = ?",
+//       [id, cid],
+//       (err, current) => {
+//         if (!current) return res.redirect(`/court/${cid}`);
+//         const swapPos =
+//           direction === "up"
+//             ? current.position - 1
+//             : current.position + 1;
+
+//         db.get(
+//           "SELECT id FROM queue WHERE position = ? AND court_id = ?",
+//           [swapPos, cid],
+//           (err2, swapWith) => {
+//             if (!swapWith) return res.redirect(`/court/${cid}`);
+//             db.run("UPDATE queue SET position=? WHERE id=?", [
+//               swapPos,
+//               current.id
+//             ]);
+//             db.run(
+//               "UPDATE queue SET position=? WHERE id=?",
+//               [current.position, swapWith.id],
+//               () => normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`))
+//             );
+//           }
+//         );
+//       }
+//     );
+//   });
+// });
 
 // Start match
 app.get("/court/:cid/start", (req, res) => {
@@ -565,8 +597,6 @@ app.get("/court/:cid/clear-queue", (req, res) => {
     });
   });
 });
-
-// Socket.IO connections
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
 

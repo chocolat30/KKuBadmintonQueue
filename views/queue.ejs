@@ -95,6 +95,47 @@
         opacity: 1;
       }
     }
+
+    /* Drag and drop styles */
+    .queue-item {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      transition: background-color 0.2s;
+    }
+
+    .queue-item:active {
+      cursor: grabbing;
+    }
+
+    .queue-item.dragging {
+      opacity: 0.5;
+      background-color: #f8f9fa !important;
+    }
+
+    .queue-item.drag-over {
+      background-color: #e7f3ff !important;
+      border-top: 3px solid #0d6efd;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      color: #999;
+      margin-right: 8px;
+      display: flex;
+      align-items: center;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      flex-shrink: 0;
+      touch-action: none;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
   </style>
 </head>
 
@@ -150,7 +191,7 @@
     </div>
 
     <!-- QUEUE -->
-    <h4 class="mb-3">คิวที่กำลังต่อ (คู่)</h4>
+    <h4 class="mb-3">คิวที่กำลังต่อ (คู่) - ลากเพื่อจัดลำดับ</h4>
 
     <ul class="list-group mb-4" id="queueContainer">
       <li class="list-group-item text-center">คิววาง</li>
@@ -161,6 +202,7 @@
   <script>
     const courtId = "<%= court.id %>";
     const socket = io();
+    let draggedItem = null;
 
     // Generate QR Code
     const url = `${location.origin}/court/${courtId}`;
@@ -243,7 +285,7 @@
       `;
     }
 
-    // Update queue display
+    // Update queue display with drag & drop
     function updateQueueDisplay(queue) {
       const container = document.getElementById("queueContainer");
       
@@ -253,8 +295,9 @@
       }
 
       container.innerHTML = queue.map((q, i) => `
-        <li class="list-group-item">
+        <li class="list-group-item queue-item" data-queue-id="${q.id}">
           <div class="d-flex align-items-center gap-2 mb-2" style="flex-wrap: wrap;">
+            <span class="drag-handle" draggable="true">☰</span>
             <strong>${i + 1}.</strong>
             <span id="name-text-${q.id}" style="word-break: break-word; flex: 1 1 auto;">${escapeHtml(q.name)}</span>
           </div>
@@ -267,12 +310,147 @@
                 style="width:140px" maxlength="100" required autofocus />
               <button class="btn btn-sm btn-outline-secondary" type="submit">แก้</button>
             </form>
-            ${i > 0 ? `<a href="/court/${courtId}/move/${q.id}/up" class="btn btn-sm btn-outline-secondary">ขึ้น</a>` : ''}
-            ${i < queue.length - 1 ? `<a href="/court/${courtId}/move/${q.id}/down" class="btn btn-sm btn-outline-secondary">ลง</a>` : ''}
             <a href="/court/${courtId}/remove/${q.id}" class="btn btn-sm btn-outline-danger">ลบ</a>
           </div>
         </li>
       `).join('');
+
+      // Add drag event listeners
+      setupDragAndDrop();
+    }
+
+    // Setup drag and drop
+    function setupDragAndDrop() {
+      const items = document.querySelectorAll('.queue-item');
+      let touchItem = null;
+      let touchStartY = 0;
+      
+      items.forEach(item => {
+        const handle = item.querySelector('.drag-handle');
+        
+        // Desktop drag events - only on handle
+        handle.addEventListener('dragstart', (e) => {
+          draggedItem = item;
+          item.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+
+        handle.addEventListener('dragend', (e) => {
+          item.classList.remove('dragging');
+          items.forEach(i => i.classList.remove('drag-over'));
+          draggedItem = null;
+        });
+
+        item.addEventListener('dragover', (e) => {
+          if (!draggedItem) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          
+          if (item !== draggedItem) {
+            item.classList.add('drag-over');
+          }
+        });
+
+        item.addEventListener('dragleave', (e) => {
+          item.classList.remove('drag-over');
+        });
+
+        item.addEventListener('drop', (e) => {
+          if (!draggedItem) return;
+          e.preventDefault();
+          
+          if (item !== draggedItem) {
+            const allItems = [...document.querySelectorAll('.queue-item')];
+            const draggedIndex = allItems.indexOf(draggedItem);
+            const targetIndex = allItems.indexOf(item);
+            
+            if (draggedIndex < targetIndex) {
+              item.parentNode.insertBefore(draggedItem, item.nextSibling);
+            } else {
+              item.parentNode.insertBefore(draggedItem, item);
+            }
+            
+            sendQueueOrder();
+          }
+          
+          item.classList.remove('drag-over');
+        });
+
+        // Mobile touch events - only on handle
+        handle.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          touchItem = item;
+          touchStartY = e.touches[0].clientY;
+          item.classList.add('dragging');
+        });
+
+        handle.addEventListener('touchmove', (e) => {
+          if (!touchItem) return;
+          e.preventDefault();
+          
+          const touchY = e.touches[0].clientY;
+          const allItems = [...document.querySelectorAll('.queue-item')];
+          
+          for (let other of allItems) {
+            if (other === touchItem) continue;
+            
+            const rect = other.getBoundingClientRect();
+            if (touchY >= rect.top && touchY <= rect.bottom) {
+              other.classList.add('drag-over');
+            } else {
+              other.classList.remove('drag-over');
+            }
+          }
+        });
+
+        handle.addEventListener('touchend', (e) => {
+          if (!touchItem) return;
+          
+          const touchY = e.changedTouches[0].clientY;
+          const allItems = [...document.querySelectorAll('.queue-item')];
+          
+          for (let other of allItems) {
+            if (other === touchItem) continue;
+            
+            const rect = other.getBoundingClientRect();
+            if (touchY >= rect.top && touchY <= rect.bottom) {
+              const draggedIndex = allItems.indexOf(touchItem);
+              const targetIndex = allItems.indexOf(other);
+              
+              if (draggedIndex < targetIndex) {
+                other.parentNode.insertBefore(touchItem, other.nextSibling);
+              } else {
+                other.parentNode.insertBefore(touchItem, other);
+              }
+              
+              sendQueueOrder();
+              break;
+            }
+          }
+          
+          touchItem.classList.remove('dragging');
+          allItems.forEach(i => i.classList.remove('drag-over'));
+          touchItem = null;
+        }, { passive: true });
+      });
+    }
+
+    // Send updated queue order to server
+    function sendQueueOrder() {
+      const items = document.querySelectorAll('.queue-item');
+      const newOrder = Array.from(items).map(item => ({
+        id: parseInt(item.dataset.queueId),
+        position: Array.from(items).indexOf(item) + 1
+      }));
+
+      // Send to server
+      fetch(`/court/${courtId}/reorder-queue`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ order: newOrder })
+      }).catch(err => console.error('Reorder failed:', err));
     }
 
     // Helper to escape HTML
