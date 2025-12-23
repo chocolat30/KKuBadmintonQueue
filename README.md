@@ -16,7 +16,7 @@ Built with **Node.js, Express, SQLite, and EJS**.
 
 ### Queue System
 - Join queue by pair name
-- Move queue up / down
+- Draging queue up / down 
 - Remove specific pairs
 - Clear entire queue
 - Inline name editing
@@ -70,14 +70,11 @@ Prevents accidental data loss
 ```
 /
     server.js
-    db.js
-    database.sqlite
+    db.js (database.sqlite)
     views/
         courts.ejs
         queue.ejs
         history.ejs
-    public/
-        (static files)
     README.md
 ```
 
@@ -98,7 +95,7 @@ npm install
 
 ### 3 Start the server
 ```bash
-node server.js
+npm run start
 ```
 
 ### 4 Open in browser
@@ -136,7 +133,6 @@ http://localhost:3000
 
 ## Future Improvements (Ideas)
 
-- WebSocket live updates
 - Player statistics
 - Court availability dashboard
 - Auth / admin mode
