@@ -33,6 +33,10 @@ Built with **Node.js, Express, SQLite, and EJS**.
 - Global match history
 - Clear history (court-specific or global)
 
+### Time Estimation System
+- Estimates time for the waiting queues
+- Calculated by using previous matches duration 
+
 ### Undo System
 - Undo last action 
 - Restores:

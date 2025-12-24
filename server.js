@@ -9,29 +9,30 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
+// Import queue estimation helper
+const { getQueueWithEstimates } = require("./helpers/queueEstimation");
+
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static("public"));
 
-// Broadcast court state to all clients
+// Broadcast court state to all clients (with queue estimates)
 function broadcastCourtState(court_id) {
-  db.all(
-    "SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC",
-    [court_id],
-    (e1, queue) => {
-      db.get(
-        "SELECT * FROM current_match WHERE court_id = ? LIMIT 1",
-        [court_id],
-        (e2, match) => {
-          io.emit(`court:${court_id}`, {
-            queue: queue || [],
-            match: match || null
-          });
-        }
-      );
-    }
-  );
+  getQueueWithEstimates(court_id, (err, queue) => {
+    if (err) queue = [];
+    
+    db.get(
+      "SELECT * FROM current_match WHERE court_id = ? LIMIT 1",
+      [court_id],
+      (e2, match) => {
+        io.emit(`court:${court_id}`, {
+          queue: queue || [],
+          match: match || null
+        });
+      }
+    );
+  });
 }
 
 // undo helper
@@ -140,24 +141,22 @@ app.get("/court/:cid", (req, res) => {
 
   db.get("SELECT * FROM courts WHERE id = ?", [cid], (err, court) => {
     if (!court) return res.redirect("/");
-    db.all(
-      "SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC",
-      [cid],
-      (e, queue) => {
-        db.get(
-          "SELECT * FROM current_match WHERE court_id = ? LIMIT 1",
-          [cid],
-          (e2, match) => {
-            res.render("queue", {
-              queue: queue || [],
-              match: match ? [match] : [],
-              court,
-              msg
-            });
-          }
-        );
-      }
-    );
+    
+    // Use estimated queue
+    getQueueWithEstimates(cid, (err, queue) => {
+      db.get(
+        "SELECT * FROM current_match WHERE court_id = ? LIMIT 1",
+        [cid],
+        (e2, match) => {
+          res.render("queue", {
+            queue: queue || [],
+            match: match ? [match] : [],
+            court,
+            msg
+          });
+        }
+      );
+    });
   });
 });
 
@@ -217,45 +216,6 @@ app.post("/court/:cid/reorder-queue", (req, res) => {
       });
   });
 });
-
-// // Move queue up/down
-// app.get("/court/:cid/move/:id/:direction", (req, res) => {
-//   const cid = Number(req.params.cid);
-
-//   saveUndoSnapshot(cid, () => {
-//     const id = Number(req.params.id);
-//     const direction = req.params.direction;
-
-//     db.get(
-//       "SELECT id, position FROM queue WHERE id = ? AND court_id = ?",
-//       [id, cid],
-//       (err, current) => {
-//         if (!current) return res.redirect(`/court/${cid}`);
-//         const swapPos =
-//           direction === "up"
-//             ? current.position - 1
-//             : current.position + 1;
-
-//         db.get(
-//           "SELECT id FROM queue WHERE position = ? AND court_id = ?",
-//           [swapPos, cid],
-//           (err2, swapWith) => {
-//             if (!swapWith) return res.redirect(`/court/${cid}`);
-//             db.run("UPDATE queue SET position=? WHERE id=?", [
-//               swapPos,
-//               current.id
-//             ]);
-//             db.run(
-//               "UPDATE queue SET position=? WHERE id=?",
-//               [current.position, swapWith.id],
-//               () => normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`))
-//             );
-//           }
-//         );
-//       }
-//     );
-//   });
-// });
 
 // Start match
 app.get("/court/:cid/start", (req, res) => {
@@ -597,6 +557,7 @@ app.get("/court/:cid/clear-queue", (req, res) => {
     });
   });
 });
+
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
 
