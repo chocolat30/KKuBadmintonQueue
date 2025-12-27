@@ -13,7 +13,7 @@ function calculateAverageDuration(court_id, callback) {
   db.all(
     `SELECT timestamp FROM match_history 
      WHERE court_id = ? 
-     ORDER BY timestamp ASC 
+     ORDER BY timestamp DESC 
      LIMIT 11`,
     [court_id],
     (err, matches) => {
@@ -22,12 +22,15 @@ function calculateAverageDuration(court_id, callback) {
         return callback(null, DEFAULT_MATCH_DURATION);
       }
 
+      // Reverse to get chronological order (oldest to newest)
+      matches.reverse();
+
       // Calculate duration between consecutive matches
       let totalDuration = 0;
       const matchCount = Math.min(matches.length - 1, 10); // Use max 10 durations
       
       for (let i = 0; i < matchCount; i++) {
-        // Since sorted ASC, next match is newer, so subtract older from newer
+        // Now in chronological order, next match is newer
         const duration = matches[i + 1].timestamp - matches[i].timestamp;
         // Ignore if duration is negative or too small (shouldn't happen but safety check)
         if (duration > 0) {
