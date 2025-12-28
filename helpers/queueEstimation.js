@@ -5,9 +5,8 @@ const DEFAULT_MATCH_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 /**
  * Calculate average match duration for a court
- * - If no matches: use default (10 min)
- * - If 1 match: use default (need more data)
- * - If 2+ matches: use average of last 10
+ * - If less than 2 matches: use default (10 min)
+ * - If 2+ matches: use average of last 10 match durations
  */
 function calculateAverageDuration(court_id, callback) {
   db.all(
@@ -18,36 +17,34 @@ function calculateAverageDuration(court_id, callback) {
     [court_id],
     (err, matches) => {
       if (err || !matches || matches.length < 2) {
-        // Not enough matches - use default
+        // Less than 2 matches - use default
         return callback(null, DEFAULT_MATCH_DURATION);
       }
 
       // Reverse to get chronological order (oldest to newest)
       matches.reverse();
 
-      // Calculate duration between consecutive matches
+      // Calculate duration between consecutive matches (max 10 durations)
       let totalDuration = 0;
-      const matchCount = Math.min(matches.length - 1, 10); // Use max 10 durations
+      let validDurations = 0;
+      const maxDurations = Math.min(matches.length - 1, 10);
       
-      for (let i = 0; i < matchCount; i++) {
-        // Now in chronological order, next match is newer
+      for (let i = 0; i < maxDurations; i++) {
         const duration = matches[i + 1].timestamp - matches[i].timestamp;
-        // Ignore if duration is negative or too small (shouldn't happen but safety check)
         if (duration > 0) {
           totalDuration += duration;
+          validDurations++;
         }
       }
       
-      // Make sure we have valid data
-      if (totalDuration === 0 || matchCount === 0) {
+      // If no valid durations, use default
+      if (validDurations === 0) {
         return callback(null, DEFAULT_MATCH_DURATION);
       }
       
-      const avgDuration = Math.round(totalDuration / matchCount);
-      // Make sure duration is reasonable (at least 1 minute, at most 1 hour)
-      const clampedDuration = Math.max(60 * 1000, Math.min(60 * 60 * 1000, avgDuration));
-      
-      callback(null, clampedDuration);
+      const avgDuration = Math.round(totalDuration / validDurations);
+      // No upper limit - use actual calculated average
+      callback(null, avgDuration);
     }
   );
 }
