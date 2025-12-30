@@ -470,40 +470,93 @@ app.get("/court/:cid/end", (req, res) => {
           const enqueue = (name, mp) => new Promise((resolve) => {
             db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (er, row) => {
               const nextPos = (row?.maxPos || 0) + 1;
-              db.run("INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, ?, ?, ?)", [name, mp, nextPos, cid], resolve);
+              db.run(
+                "INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, ?, ?, ?)",
+                [name, mp, nextPos, cid],
+                resolve
+              );
             });
           });
 
+          // Always enqueue loser
           const ops = [enqueue(loserTeam, 0)];
+          
+          // Winner stays if they haven't won 2+ times, otherwise goes to back of queue
           let winnerLeaves = winnerMatches >= 2;
-          if (winnerLeaves) ops.push(enqueue(winnerTeam, 0));
+          if (winnerLeaves) {
+            ops.push(enqueue(winnerTeam, 0));
+          }
 
           Promise.all(ops).then(() => {
+            // Determine how many people we need from queue for next match
             const need = winnerLeaves ? 2 : 1;
-            db.all("SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC LIMIT ?", [cid, need], (err4, nextPairs) => {
-              if (err4) return res.redirect(`/court/${cid}?msg=error`);
-              const staying = [];
-              if (!winnerLeaves) staying.push({ name: winnerTeam, matchesPlayed: winnerMatches });
-              nextPairs.forEach(p => staying.push({ name: p.name, matchesPlayed: p.matchesPlayed }));
-
-              const A = staying[0] || { name: null, matchesPlayed: 0 };
-              const B = staying[1] || { name: null, matchesPlayed: 0 };
-
-              db.run(
-                "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?, timestamp=? WHERE court_id = ?",
-                [A.name, A.matchesPlayed, B.name, B.matchesPlayed, Date.now(), cid],
-                () => {
-                  if (nextPairs.length > 0) {
-                    const ids = nextPairs.map(x => x.id).join(",");
-                    db.run(`DELETE FROM queue WHERE id IN (${ids}) AND court_id = ?`, [cid], () => {
-                      normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}?msg=nextjoined`));
-                    });
-                  } else {
-                    normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}?msg=nextjoined`));
-                  }
+            
+            db.all(
+              "SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC LIMIT ?",
+              [cid, need],
+              (err4, nextPairs) => {
+                if (err4) return res.redirect(`/court/${cid}?msg=error`);
+                
+                // Build the next match with people still in game + queue members
+                const staying = [];
+                
+                // If winner stays, add them as TeamA for next match
+                if (!winnerLeaves) {
+                  staying.push({
+                    name: winnerTeam,
+                    matchesPlayed: winnerMatches
+                  });
                 }
-              );
-            });
+                
+                // Add people from queue
+                nextPairs.forEach(p => {
+                  staying.push({
+                    name: p.name,
+                    matchesPlayed: p.matchesPlayed
+                  });
+                });
+
+                // Create next match or clear if not enough people
+                if (staying.length >= 2) {
+                  const A = staying[0];
+                  const B = staying[1];
+
+                  // Clear old match and create new one with current timestamp
+                  db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () => {
+                    db.run(
+                      "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB, timestamp, court_id) VALUES (?, ?, ?, ?, ?, ?)",
+                      [A.name, B.name, A.matchesPlayed, B.matchesPlayed, Date.now(), cid],
+                      () => {
+                        // Remove used queue members
+                        if (nextPairs.length > 0) {
+                          const ids = nextPairs.map(x => x.id).join(",");
+                          db.run(
+                            `DELETE FROM queue WHERE id IN (${ids}) AND court_id = ?`,
+                            [cid],
+                            () => {
+                              normalizeQueuePositions(cid, () =>
+                                res.redirect(`/court/${cid}?msg=nextjoined`)
+                              );
+                            }
+                          );
+                        } else {
+                          normalizeQueuePositions(cid, () =>
+                            res.redirect(`/court/${cid}?msg=nextjoined`)
+                          );
+                        }
+                      }
+                    );
+                  });
+                } else {
+                  // Not enough for next match - clear current match and update queue
+                  db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () => {
+                    normalizeQueuePositions(cid, () =>
+                      res.redirect(`/court/${cid}?msg=nextjoined`)
+                    );
+                  });
+                }
+              }
+            );
           }).catch(() => res.redirect(`/court/${cid}?msg=error`));
         }
       );
@@ -574,6 +627,50 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
+  });
+});
+
+
+//Debug
+
+app.get("/court/:cid/debug", (req, res) => {
+  const cid = Number(req.params.cid);
+
+  db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, match) => {
+    const now = Date.now();
+    const currentMatchData = match ? {
+      teamA: match.teamA,
+      teamB: match.teamB,
+      started: new Date(match.timestamp).toLocaleString('th-TH'),
+      elapsedMs: now - match.timestamp,
+      elapsedMins: Math.round((now - match.timestamp) / (60 * 1000))
+    } : null;
+
+    db.all(
+      "SELECT timestamp FROM match_history WHERE court_id = ? ORDER BY timestamp DESC LIMIT 5",
+      [cid],
+      (err, history) => {
+        const historyData = history ? history.map((h, i) => ({
+          position: i + 1,
+          timestamp: new Date(h.timestamp).toLocaleString('th-TH'),
+          unix: h.timestamp
+        })) : [];
+
+        db.all(
+          "SELECT id, name, position FROM queue WHERE court_id = ? ORDER BY position ASC",
+          [cid],
+          (err, queue) => {
+            res.json({
+              court_id: cid,
+              now: new Date(now).toLocaleString('th-TH'),
+              currentMatch: currentMatchData,
+              recentHistory: historyData,
+              queue: queue || []
+            });
+          }
+        );
+      }
+    );
   });
 });
 

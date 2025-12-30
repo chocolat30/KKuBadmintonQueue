@@ -52,8 +52,13 @@ function calculateAverageDuration(court_id, callback) {
 /**
  * Get queue with estimated start times
  * Calculates when each person in queue will play based on:
- * - Current match start time
- * - Average match duration
+ * - Time until current match ends
+ * - Average match duration for subsequent matches
+ * 
+ * Logic:
+ * - 1st in queue: waits for current match to end
+ * - 2nd in queue: waits for current match + 1st queue's match
+ * - 3rd in queue: waits for current match + 1st + 2nd queue's matches
  */
 function getQueueWithEstimates(court_id, callback) {
   // Get current match start time
@@ -73,18 +78,24 @@ function getQueueWithEstimates(court_id, callback) {
             if (err3) return callback(err3);
 
             const now = Date.now();
-            const currentMatchStartTime = currentMatch ? currentMatch.timestamp : now;
+            let timeUntilCurrentMatchEnds = 0;
+
+            // If there's a current match, calculate when it ends
+            if (currentMatch) {
+              const elapsedTime = now - currentMatch.timestamp;
+              // Match ends when elapsed time equals average duration
+              timeUntilCurrentMatchEnds = Math.max(0, avgDuration - elapsedTime);
+            }
             
             // Calculate estimated start times for each queue member
             const queueWithEstimates = queue.map((q, idx) => {
-              // First in queue starts when current match ends
-              // Second starts after that, etc.
-              const estimatedStartTime = currentMatchStartTime + (avgDuration * (idx + 1));
-              const timeUntilStart = estimatedStartTime - now;
+              // idx 0 (1st in queue): waits for current match to end
+              // idx 1 (2nd in queue): waits for current match + their own match
+              // idx 2 (3rd in queue): waits for current match + 1st person's match + their own match
+              const timeUntilStart = timeUntilCurrentMatchEnds + (avgDuration * idx);
               
               return {
                 ...q,
-                estimatedStartTime,
                 timeUntilStart,
                 estimatedStartMinutes: Math.max(0, Math.round(timeUntilStart / (60 * 1000)))
               };
