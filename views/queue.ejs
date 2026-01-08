@@ -222,6 +222,15 @@
       updateLiveIndicator();
     });
 
+    // Handle join form
+    document.getElementById('joinForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('playerNameInput').value.trim();
+      if (!name) return;
+      socket.emit('join-queue', { courtId: parseInt(courtId), name });
+      document.getElementById('playerNameInput').value = '';
+    });
+
     // Update match display
     function updateMatchDisplay(match) {
       const container = document.getElementById("matchContainer");

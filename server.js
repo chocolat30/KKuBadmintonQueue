@@ -178,7 +178,7 @@ app.post("/court/:cid/join", (req, res) => {
           [name, nextPos, cid],
           () => {
             broadcastCourtState(cid);
-            res.redirect(`/court/${cid}`);
+            res.json({ success: true });
           }
         );
       }
@@ -244,7 +244,7 @@ app.get("/court/:cid/start", (req, res) => {
                   [a.id, b.id, cid],
                   () =>
                     normalizeQueuePositions(cid, () =>
-                      res.redirect(`/court/${cid}`)
+                      res.json({ success: true })
                     )
                 );
               }
@@ -351,7 +351,7 @@ app.get("/court/:cid/reset-match", (req, res) => {
           normalizeQueuePositions(cid, () => {
             db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () => {
               broadcastCourtState(cid);
-              res.redirect(`/court/${cid}?msg=reset`);
+              res.json({ success: true, msg: 'reset' });
             });
           });		
         });
@@ -371,7 +371,7 @@ app.get("/court/:cid/remove/:id", (req, res) => {
       [id, cid],
       () => {
         normalizeQueuePositions(cid, () => {
-          res.redirect(`/court/${cid}`);
+          res.json({ success: true });
         });
       }
     );
@@ -392,7 +392,7 @@ app.post("/court/:cid/rename/:id", (req, res) => {
       [newName, id, cid],
       () => {
         broadcastCourtState(cid);
-        res.redirect(`/court/${cid}`);
+        res.json({ success: true });
       }
     );
   });
@@ -571,6 +571,30 @@ io.on("connection", (socket) => {
   socket.on("leave-court", (courtId) => {
     socket.leave(`court:${courtId}`);
     console.log(`Client ${socket.id} left court:${courtId}`);
+  });
+
+  socket.on("join-queue", (data) => {
+    const { courtId, name } = data;
+    const cid = Number(courtId);
+    const trimmedName = (name || "").trim();
+    if (!trimmedName) return;
+
+    saveUndoSnapshot(cid, () => {
+      db.get(
+        "SELECT MAX(position) AS maxPos FROM queue WHERE court_id = ?",
+        [cid],
+        (err, row) => {
+          const nextPos = (row?.maxPos || 0) + 1;
+          db.run(
+            "INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, 0, ?, ?)",
+            [trimmedName, nextPos, cid],
+            () => {
+              broadcastCourtState(cid);
+            }
+          );
+        }
+      );
+    });
   });
 
   socket.on("disconnect", () => {
