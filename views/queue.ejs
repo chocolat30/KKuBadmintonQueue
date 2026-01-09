@@ -203,6 +203,42 @@
     const courtId = "<%= court.id %>";
     const socket = io();
     let draggedItem = null;
+    let matchTimerInterval = null;
+    let matchStartTimestamp = null;
+
+    function formatDuration(ms) {
+      if (!ms || ms < 0) ms = 0;
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      if (hours > 0) {
+        return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+      }
+      return `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+    }
+
+    function startMatchTimer(ts) {
+      stopMatchTimer();
+      matchStartTimestamp = Number(ts) || Date.now();
+      const el = document.getElementById('matchTimer');
+      if (!el) return;
+      function tick() {
+        const elapsed = Date.now() - matchStartTimestamp;
+        el.textContent = formatDuration(elapsed);
+      }
+      tick();
+      matchTimerInterval = setInterval(tick, 1000);
+    }
+
+    function stopMatchTimer() {
+      if (matchTimerInterval) {
+        clearInterval(matchTimerInterval);
+        matchTimerInterval = null;
+      }
+      const el = document.getElementById('matchTimer');
+      if (el) el.textContent = '';
+    }
 
     // Generate QR Code
     const url = `${location.origin}/court/${courtId}`;
@@ -236,6 +272,7 @@
       const container = document.getElementById("matchContainer");
       
       if (!match) {
+        stopMatchTimer();
         container.innerHTML = '<div class="alert alert-secondary text-center">คอร์ทว่าง</div>';
         return;
       }
@@ -290,8 +327,13 @@
           <div class="text-muted text-center small mt-3">
             เริ่มแมตช์เมื่อ: ${new Date(Number(m.timestamp)).toLocaleString('th-TH')}
           </div>
+          <div class="text-center mt-2"> 
+            <span id="matchTimer" style="font-size: 1.5rem; font-weight: bold; color: #333;"></span>
+          </div>
         </div>
       `;
+      // start timer
+      startMatchTimer(m.timestamp);
     }
 
     // Update queue display with drag & drop
