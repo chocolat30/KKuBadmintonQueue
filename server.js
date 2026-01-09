@@ -597,6 +597,42 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("start-match", (courtId) => {
+    const cid = Number(courtId);
+
+    saveUndoSnapshot(cid, () => {
+      db.get(
+        "SELECT * FROM current_match WHERE court_id=?",
+        [cid],
+        (e, exist) => {
+          if (exist) return;
+          db.all(
+            "SELECT * FROM queue WHERE court_id=? ORDER BY position ASC LIMIT 2",
+            [cid],
+            (e2, rows) => {
+              if (!rows || rows.length < 2) return;
+              const [a, b] = rows;
+              db.run(
+                "INSERT INTO current_match (teamA, teamB, matchesPlayedA, matchesPlayedB, timestamp, court_id) VALUES (?,?,?,?,?,?)",
+                [a.name, b.name, a.matchesPlayed, b.matchesPlayed, Date.now(), cid],
+                () => {
+                  db.run(
+                    "DELETE FROM queue WHERE id IN (?,?) AND court_id=?",
+                    [a.id, b.id, cid],
+                    () =>
+                      normalizeQueuePositions(cid, () =>
+                        broadcastCourtState(cid)
+                      )
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
   });

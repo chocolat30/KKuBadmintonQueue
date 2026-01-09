@@ -165,7 +165,7 @@
 
     <!-- ACTION BUTTONS -->
     <div class="mb-4 d-flex gap-2 queue-actions">
-      <a href="/court/<%= court.id %>/start" class="btn btn-success">เริ่มแมตช์</a>
+      <button class="btn btn-success" onclick="socket.emit('start-match', parseInt(courtId))">เริ่มแมตช์</button>
       <a href="/court/<%= court.id %>/reset-match" class="btn btn-warning">รีเซ็ตแมตช์</a>
       <a href="/court/<%= court.id %>/clear-queue" class="btn btn-danger"
         onclick="return confirm('ต้องการลบคิวทั้งหมดใช่หรือไม่?')">
