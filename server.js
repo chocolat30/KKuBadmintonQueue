@@ -414,7 +414,6 @@ app.get("/court/:cid/add-match/:side", (req, res) => {
     });
   });
 });
-
 app.get("/court/:cid/minus-match/:side", (req, res) => {
   const cid = Number(req.params.cid);
   const side = req.params.side;
@@ -630,6 +629,159 @@ io.on("connection", (socket) => {
           );
         }
       );
+    });
+  });
+
+  socket.on("reset-match", (courtId) => {
+    const cid = Number(courtId);
+
+    saveUndoSnapshot(cid, () => {
+      db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+        if (err || !m) return;
+
+        const names = [m.teamA, m.teamB];
+
+        db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (er, row) => {
+          let nextPos = (row?.maxPos || 0) + 1;
+
+          const ops = names.map((name, idx) => {
+            return new Promise((resolve) => {
+              if (!name || name.trim() === "") return resolve();
+
+              db.run(
+                "INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, 0, ?, ?)",
+                [name, nextPos + idx, cid],
+                resolve
+              );
+            });
+          });
+
+          Promise.all(ops).then(() => {
+            normalizeQueuePositions(cid, () => {
+              db.run("DELETE FROM current_match WHERE court_id = ?", [cid], () => {
+                broadcastCourtState(cid);
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+
+  socket.on("rename-queue", (data) => {
+    const { courtId, queueId, name } = data;
+    const cid = Number(courtId);
+    const id = Number(queueId);
+    const newName = (name || "").trim();
+    if (!newName) return;
+
+    saveUndoSnapshot(cid, () => {
+      db.run(
+        "UPDATE queue SET name = ? WHERE id = ? AND court_id = ?",
+        [newName, id, cid],
+        () => {
+          broadcastCourtState(cid);
+        }
+      );
+    });
+  });
+
+  socket.on("end-match", (data) => {
+    const { courtId, winner } = data;
+    const cid = Number(courtId);
+    if (!winner) return;
+
+    saveUndoSnapshot(cid, () => {
+      db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+        if (err || !m) return;
+
+        let matchesA = m.matchesPlayedA || 0;
+        let matchesB = m.matchesPlayedB || 0;
+        if (winner === "A") matchesA += 1; else matchesB += 1;
+
+        const winnerTeam = winner === "A" ? m.teamA : m.teamB;
+        const loserTeam = winner === "A" ? m.teamB : m.teamA;
+        const winnerMatches = winner === "A" ? matchesA : matchesB;
+
+        db.run(
+          "INSERT INTO match_history (teamA, teamB, winner, timestamp, court_id) VALUES (?, ?, ?, ?, ?)",
+          [m.teamA, m.teamB, winnerTeam, Date.now(), cid],
+          (err2) => {
+            if (err2) return;
+
+            const enqueue = (name, mp) => new Promise((resolve) => {
+              db.get("SELECT MAX(position) as maxPos FROM queue WHERE court_id = ?", [cid], (er, row) => {
+                const nextPos = (row?.maxPos || 0) + 1;
+                db.run("INSERT INTO queue (name, matchesPlayed, position, court_id) VALUES (?, ?, ?, ?)", [name, mp, nextPos, cid], resolve);
+              });
+            });
+
+            const ops = [enqueue(loserTeam, 0)];
+            let winnerLeaves = winnerMatches >= 2;
+            if (winnerLeaves) ops.push(enqueue(winnerTeam, 0));
+
+            Promise.all(ops).then(() => {
+              const need = winnerLeaves ? 2 : 1;
+              db.all("SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC LIMIT ?", [cid, need], (err4, nextPairs) => {
+                if (err4) return;
+                const staying = [];
+                if (!winnerLeaves) staying.push({ name: winnerTeam, matchesPlayed: winnerMatches });
+                nextPairs.forEach(p => staying.push({ name: p.name, matchesPlayed: p.matchesPlayed }));
+
+                const A = staying[0] || { name: null, matchesPlayed: 0 };
+                const B = staying[1] || { name: null, matchesPlayed: 0 };
+
+                db.run(
+                  "UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?, timestamp=? WHERE court_id = ?",
+                  [A.name, A.matchesPlayed, B.name, B.matchesPlayed, Date.now(), cid],
+                  () => {
+                    if (nextPairs.length > 0) {
+                      const ids = nextPairs.map(x => x.id).join(",");
+                      db.run(`DELETE FROM queue WHERE id IN (${ids}) AND court_id = ?`, [cid], () => {
+                        normalizeQueuePositions(cid, () => broadcastCourtState(cid));
+                      });
+                    } else {
+                      normalizeQueuePositions(cid, () => broadcastCourtState(cid));
+                    }
+                  }
+                );
+              });
+            }).catch(() => {});
+          }
+        );
+      });
+    });
+  });
+
+  socket.on("add-match", (data) => {
+    const { courtId, side } = data;
+    const cid = Number(courtId);
+    saveUndoSnapshot(cid, () => {
+      db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+        if (err || !m) return;
+        let a = m.matchesPlayedA || 0, b = m.matchesPlayedB || 0;
+        if (side === "A") a++; else b++;
+        db.run("UPDATE current_match SET matchesPlayedA=?, matchesPlayedB=? WHERE court_id = ?", [a, b, cid], () => {
+          broadcastCourtState(cid);
+        });
+      });
+    });
+  });
+
+  socket.on("minus-match", (data) => {
+    const { courtId, side } = data;
+    const cid = Number(courtId);
+    saveUndoSnapshot(cid, () => {
+      db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], (err, m) => {
+        if (err || !m) return;
+        const curr = side === "A" ? (m.matchesPlayedA || 0) : (m.matchesPlayedB || 0);
+        if (curr <= 0) return;
+        const newVal = curr - 1;
+        const column = side === "A" ? "matchesPlayedA" : "matchesPlayedB";
+        db.run(`UPDATE current_match SET ${column}=? WHERE court_id = ?`, [newVal, cid], () => {
+          broadcastCourtState(cid);
+        });
+      });
     });
   });
 

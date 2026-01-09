@@ -166,7 +166,7 @@
     <!-- ACTION BUTTONS -->
     <div class="mb-4 d-flex gap-2 queue-actions">
       <button class="btn btn-success" onclick="socket.emit('start-match', parseInt(courtId))">เริ่มแมตช์</button>
-      <a href="/court/<%= court.id %>/reset-match" class="btn btn-warning">รีเซ็ตแมตช์</a>
+      <button class="btn btn-warning" onclick="socket.emit('reset-match', parseInt(courtId))">รีเซ็ตแมตช์</button>
       <a href="/court/<%= court.id %>/clear-queue" class="btn btn-danger"
         onclick="return confirm('ต้องการลบคิวทั้งหมดใช่หรือไม่?')">
         ล้างคิวทั้งหมด
@@ -255,10 +255,10 @@
                   เล่นแล้ว: ${m.matchesPlayedA} รอบ
                 </div>
                 <div class="mt-3 d-grid gap-2">
-                  <a href="/court/${courtId}/end?w=A" class="btn btn-success btn-lg">ทีม A ชนะ</a>
+                  <button class="btn btn-success btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'A' })">ทีม A ชนะ</button>
                   ${m.matchesPlayedA === 0 
-                    ? `<a href="/court/${courtId}/add-match/A" class="btn btn-warning">+1</a>` 
-                    : `<a href="/court/${courtId}/minus-match/A" class="btn btn-secondary">-1</a>`
+                    ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'A' })">+1</button>` 
+                    : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'A' })">-1</button>`
                   }
                 </div>
               </div>
@@ -278,10 +278,10 @@
                   เล่นแล้ว: ${m.matchesPlayedB} รอบ
                 </div>
                 <div class="mt-3 d-grid gap-2">
-                  <a href="/court/${courtId}/end?w=B" class="btn btn-danger btn-lg">ทีม B ชนะ</a>
+                  <button class="btn btn-danger btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'B' })">ทีม B ชนะ</button>
                   ${m.matchesPlayedB === 0 
-                    ? `<a href="/court/${courtId}/add-match/B" class="btn btn-warning">+1</a>` 
-                    : `<a href="/court/${courtId}/minus-match/B" class="btn btn-secondary">-1</a>`
+                    ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'B' })">+1</button>` 
+                    : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'B' })">-1</button>`
                   }
                 </div>
               </div>
@@ -314,8 +314,7 @@
           <div class="d-flex flex-wrap gap-2">
             <button id="edit-btn-${q.id}" class="btn btn-sm btn-outline-primary" type="button"
               onclick="enableEdit('${q.id}')">แก้ชื่อ</button>
-            <form id="edit-form-${q.id}" action="/court/${courtId}/rename/${q.id}" method="POST"
-              class="d-none d-flex align-items-center gap-2">
+            <form id="edit-form-${q.id}" class="d-none d-flex align-items-center gap-2" onsubmit="handleRenameSubmit(event, '${q.id}')">
               <input name="name" value="${escapeHtml(q.name)}" class="form-control form-control-sm"
                 style="width:140px" maxlength="100" required autofocus />
               <button class="btn btn-sm btn-outline-secondary" type="submit">แก้</button>
@@ -475,6 +474,18 @@
       document.getElementById(`name-text-${id}`).classList.add("d-none");
       document.getElementById(`edit-btn-${id}`).classList.add("d-none");
       document.getElementById(`edit-form-${id}`).classList.remove("d-none");
+    }
+
+    // Handle rename form submission
+    function handleRenameSubmit(e, queueId) {
+      e.preventDefault();
+      const form = e.target;
+      const name = form.querySelector('input[name="name"]').value.trim();
+      if (!name) return;
+      socket.emit('rename-queue', { courtId: parseInt(courtId), queueId: parseInt(queueId), name });
+      document.getElementById(`edit-form-${queueId}`).classList.add("d-none");
+      document.getElementById(`name-text-${queueId}`).classList.remove("d-none");
+      document.getElementById(`edit-btn-${queueId}`).classList.remove("d-none");
     }
 
     // Update live indicator visibility
