@@ -264,7 +264,7 @@ app.get("/court/:cid/undo", (req, res) => {
     "SELECT data FROM undo_snapshot WHERE court_id=?",
     [cid],
     (err, row) => {
-      if (!row) return res.redirect(`/court/${cid}?msg=nothing_to_undo`);
+      if (!row) return res.json({ success: false, msg: "nothing_to_undo" });
       const snap = JSON.parse(row.data);
 
       db.serialize(() => {
@@ -304,8 +304,8 @@ app.get("/court/:cid/undo", (req, res) => {
 
         snap.match_history.forEach(h => {
           db.run(
-            "INSERT INTO match_history VALUES (?,?,?,?,?,?)",
-            [h.id, h.teamA, h.teamB, h.winner, h.court_id, h.timestamp]
+            "INSERT INTO match_history VALUES (?,?,?,?,?,?,?)",
+            [h.id, h.teamA, h.teamB, h.winner, h.court_id, h.timestamp, h.duration]
           );
         });
 
@@ -314,7 +314,8 @@ app.get("/court/:cid/undo", (req, res) => {
           [cid],
           () => {
             broadcastCourtState(cid);
-            res.redirect(`/court/${cid}?msg=undone`);
+            io.emit(`court:${cid}:undo`, { success: true, msg: "undone" });
+            res.json({ success: true, msg: "undone" });
           }
         );
       });
