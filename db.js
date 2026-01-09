@@ -95,6 +95,8 @@ db.serialize(() => {
     const cols = rows.map(r => r.name);
     if (!cols.includes("court_id"))
       db.run(`ALTER TABLE match_history ADD COLUMN court_id INTEGER DEFAULT 1`);
+    if (!cols.includes("duration"))
+      db.run(`ALTER TABLE match_history ADD COLUMN duration INTEGER DEFAULT 0`);
   });
 
   // ========== TABLE: undo_snapshot ==========

@@ -460,10 +460,11 @@ app.get("/court/:cid/end", (req, res) => {
       const winnerTeam = winner === "A" ? m.teamA : m.teamB;
       const loserTeam = winner === "A" ? m.teamB : m.teamA;
       const winnerMatches = winner === "A" ? matchesA : matchesB;
+      const duration = Date.now() - (m.timestamp || Date.now());
 
       db.run(
-        "INSERT INTO match_history (teamA, teamB, winner, timestamp, court_id) VALUES (?, ?, ?, ?, ?)",
-        [m.teamA, m.teamB, winnerTeam, Date.now(), cid],
+        "INSERT INTO match_history (teamA, teamB, winner, timestamp, court_id, duration) VALUES (?, ?, ?, ?, ?, ?)",
+        [m.teamA, m.teamB, winnerTeam, Date.now(), cid, duration],
         (err2) => {
           if (err2) return res.redirect(`/court/${cid}?msg=error`);
 
@@ -702,10 +703,11 @@ io.on("connection", (socket) => {
         const winnerTeam = winner === "A" ? m.teamA : m.teamB;
         const loserTeam = winner === "A" ? m.teamB : m.teamA;
         const winnerMatches = winner === "A" ? matchesA : matchesB;
+        const duration = Date.now() - (m.timestamp || Date.now());
 
         db.run(
-          "INSERT INTO match_history (teamA, teamB, winner, timestamp, court_id) VALUES (?, ?, ?, ?, ?)",
-          [m.teamA, m.teamB, winnerTeam, Date.now(), cid],
+          "INSERT INTO match_history (teamA, teamB, winner, timestamp, court_id, duration) VALUES (?, ?, ?, ?, ?, ?)",
+          [m.teamA, m.teamB, winnerTeam, Date.now(), cid, duration],
           (err2) => {
             if (err2) return;
 

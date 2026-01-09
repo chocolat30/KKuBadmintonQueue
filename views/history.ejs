@@ -25,14 +25,32 @@
       <div class="alert alert-info">ยังไม่มีประวัติการเล่น</div>
     <% } else { %>
       <ul class="list-group">
-        <% history.forEach(h => { %>
+        <% 
+          function formatDuration(ms) {
+            if (!ms || ms < 0) return '-';
+            const minutes = Math.floor(ms / 60000);
+            const seconds = Math.floor((ms % 60000) / 1000);
+            return `${minutes}:${String(seconds).padStart(2, '0')}`;
+          }
+        %>
+        <% history.forEach((h, index) => { %>
           <li class="list-group-item">
-            <strong class="text-success"><%= h.teamA %></strong>
-            <span class="mx-2">vs</span>
-            <strong class="text-danger"><%= h.teamB %></strong>
-            <% if (h.winner) { %>
-              <div class="mt-1">ทีมที่ชนะ: <span class="badge bg-primary"><%= h.winner %></span></div>
-            <% } %>
+            <div class="row">
+              <div class="col-md-8">
+                <strong class="text-success"><%= h.teamA %></strong>
+                <span class="mx-2">vs</span>
+                <strong class="text-danger"><%= h.teamB %></strong>
+                <% if (h.winner) { %>
+                  <div class="mt-1">ทีมที่ชนะ: <span class="badge bg-primary"><%= h.winner %></span></div>
+                <% } %>
+              </div>
+              <div class="col-md-4 text-end">
+                <div class="small text-muted">แมตช์ที่: <strong>#<%= history.length - index %></strong></div>
+                <% if (h.duration) { %>
+                  <div class="small text-muted">เวลาเล่น: <strong><%= formatDuration(h.duration) %></strong></div>
+                <% } %>
+              </div>
+            </div>
             <div class="mt-2 text-muted small">เริ่มแมตช์ตอน: <%= new Date(Number(h.timestamp)).toLocaleString('th-TH') %></div>
           </li>
         <% }) %>
