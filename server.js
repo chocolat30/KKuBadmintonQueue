@@ -304,7 +304,7 @@ app.get("/court/:cid/undo", (req, res) => {
 
         snap.match_history.forEach(h => {
           db.run(
-            "INSERT INTO match_history VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO match_history (id, teamA, teamB, winner, court_id, timestamp, duration) VALUES (?,?,?,?,?,?,?)",
             [h.id, h.teamA, h.teamB, h.winner, h.court_id, h.timestamp, h.duration]
           );
         });
@@ -314,8 +314,7 @@ app.get("/court/:cid/undo", (req, res) => {
           [cid],
           () => {
             broadcastCourtState(cid);
-            io.emit(`court:${cid}:undo`, { success: true, msg: "undone" });
-            res.json({ success: true, msg: "undone" });
+            res.redirect(`/court/${cid}?msg=undone`);
           }
         );
       });
