@@ -136,6 +136,46 @@
     .drag-handle:active {
       cursor: grabbing;
     }
+
+    .disconnection-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.9);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .disconnection-content {
+      text-align: center;
+    }
+
+    .disconnection-icon {
+      font-size: 4rem;
+      color: #dc3545;
+      margin-bottom: 1rem;
+    }
+
+    .disconnection-text {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #dc3545;
+      margin-bottom: 0.5rem;
+    }
+
+    .match-container-wrapper {
+      position: relative;
+    }
+
+    .action-buttons-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
   </style>
 </head>
 
@@ -164,7 +204,7 @@
     </form>
 
     <!-- ACTION BUTTONS -->
-    <div class="mb-4 d-flex gap-2 queue-actions">
+    <div id="actionButtonsContainer" class="mb-4 d-flex gap-2 queue-actions">
       <button class="btn btn-success" onclick="socket.emit('start-match', parseInt(courtId))">เริ่มแมตช์</button>
       <button class="btn btn-warning" onclick="socket.emit('reset-match', parseInt(courtId))">รีเซ็ตแมตช์</button>
       <a href="/court/<%= court.id %>/clear-queue" class="btn btn-danger"
@@ -184,9 +224,11 @@
     <!-- ACTIVE MATCH -->
     <h4 class="mb-3">แมตช์ที่กำลังเล่น</h4>
 
-    <div id="matchContainer">
-      <div class="alert alert-secondary text-center">
-        คอร์ทว่าง
+    <div id="matchContainerWrapper" class="match-container-wrapper">
+      <div id="matchContainer">
+        <div class="alert alert-secondary text-center">
+          คอร์ทว่าง
+        </div>
       </div>
     </div>
 
@@ -534,14 +576,48 @@
     function updateLiveIndicator() {
       const indicator = document.getElementById("liveIndicator");
       indicator.style.backgroundColor = "#28a745";
+      removeDisconnectionOverlay();
+      document.getElementById("actionButtonsContainer").classList.remove("action-buttons-disabled");
+    }
+
+    function showDisconnectionOverlay() {
+      const wrapper = document.getElementById("matchContainerWrapper");
+      let overlay = document.getElementById("disconnectionOverlay");
+      
+      if (overlay) {
+        overlay.remove();
+      }
+      
+      overlay = document.createElement("div");
+      overlay.id = "disconnectionOverlay";
+      overlay.className = "disconnection-overlay";
+      overlay.innerHTML = `
+        <div class="disconnection-content">
+          <div class="disconnection-icon">⚠️</div>
+          <div class="disconnection-text">เซิร์ฟเวอร์หลุดการเชื่อมต่อ โปรดรอสักครู่</div>
+        </div>
+      `;
+      wrapper.appendChild(overlay);
+      document.getElementById("actionButtonsContainer").classList.add("action-buttons-disabled");
+    }
+
+    function removeDisconnectionOverlay() {
+      const overlay = document.getElementById("disconnectionOverlay");
+      if (overlay) {
+        overlay.remove();
+      }
     }
 
     // Show offline when disconnected
     socket.on("disconnect", () => {
       document.getElementById("liveIndicator").style.backgroundColor = "#dc3545";
+      showDisconnectionOverlay();
     });
 
     socket.on("connect", () => {
+      document.getElementById("liveIndicator").style.backgroundColor = "#28a745";
+      removeDisconnectionOverlay();
+      document.getElementById("actionButtonsContainer").classList.remove("action-buttons-disabled");
       socket.emit("join-court", courtId);
     });
   </script>
