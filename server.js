@@ -362,20 +362,7 @@ app.get("/court/:cid/reset-match", (req, res) => {
 
 // Remove one from court
 app.get("/court/:cid/remove/:id", (req, res) => {
-  const cid = Number(req.params.cid);
-  const id = Number(req.params.id);
-
-  saveUndoSnapshot(cid, () => {
-    db.run(
-      "DELETE FROM queue WHERE id = ? AND court_id = ?",
-      [id, cid],
-      () => {
-        normalizeQueuePositions(cid, () => {
-          res.json({ success: true });
-        });
-      }
-    );
-  });
+  res.json({ error: "Use socket.io" });
 });
 
 // Rename queue name 
@@ -497,10 +484,10 @@ app.get("/court/:cid/end", (req, res) => {
                   if (nextPairs.length > 0) {
                     const ids = nextPairs.map(x => x.id).join(",");
                     db.run(`DELETE FROM queue WHERE id IN (${ids}) AND court_id = ?`, [cid], () => {
-                      normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}?msg=nextjoined`));
+                      normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`));
                     });
                   } else {
-                    normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}?msg=nextjoined`));
+                    normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`));
                   }
                 }
               );
@@ -786,6 +773,24 @@ io.on("connection", (socket) => {
       });
     });
   });
+
+  socket.on("remove-queue", (data) => {
+  const { courtId, queueId } = data;
+  const cid = Number(courtId);
+  const id = Number(queueId);
+
+  saveUndoSnapshot(cid, () => {
+    db.run(
+      "DELETE FROM queue WHERE id = ? AND court_id = ?",
+      [id, cid],
+      () => {
+        normalizeQueuePositions(cid, () => {
+          broadcastCourtState(cid);
+        });
+      }
+    );
+  });
+});
 
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);

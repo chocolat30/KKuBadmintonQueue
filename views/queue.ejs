@@ -88,9 +88,11 @@
       0% {
         opacity: 1;
       }
+
       50% {
         opacity: 0.5;
       }
+
       100% {
         opacity: 1;
       }
@@ -186,7 +188,7 @@
     <div class="d-flex justify-content-between align-items-start mb-3">
       <h3 class="court-title">
         <%= court.name %>
-        <span class="live-indicator" id="liveIndicator"></span>
+          <span class="live-indicator" id="liveIndicator"></span>
       </h3>
       <div class="court-actions">
         <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
@@ -255,9 +257,9 @@
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       if (hours > 0) {
-        return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
       }
-      return `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
 
     function startMatchTimer(ts) {
@@ -301,7 +303,7 @@
     });
 
     // Handle join form
-    document.getElementById('joinForm').addEventListener('submit', function(e) {
+    document.getElementById('joinForm').addEventListener('submit', function (e) {
       e.preventDefault();
       const name = document.getElementById('playerNameInput').value.trim();
       if (!name) return;
@@ -312,7 +314,7 @@
     // Update match display
     function updateMatchDisplay(match) {
       const container = document.getElementById("matchContainer");
-      
+
       if (!match) {
         stopMatchTimer();
         container.innerHTML = '<div class="alert alert-secondary text-center">คอร์ทว่าง</div>';
@@ -335,10 +337,10 @@
                 </div>
                 <div class="mt-3 d-grid gap-2">
                   <button class="btn btn-success btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'A' })">ทีม A ชนะ</button>
-                  ${m.matchesPlayedA === 0 
-                    ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'A' })">+1</button>` 
-                    : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'A' })">-1</button>`
-                  }
+                  ${m.matchesPlayedA === 0
+          ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'A' })">+1</button>`
+          : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'A' })">-1</button>`
+        }
                 </div>
               </div>
             </div>
@@ -358,10 +360,10 @@
                 </div>
                 <div class="mt-3 d-grid gap-2">
                   <button class="btn btn-danger btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'B' })">ทีม B ชนะ</button>
-                  ${m.matchesPlayedB === 0 
-                    ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'B' })">+1</button>` 
-                    : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'B' })">-1</button>`
-                  }
+                  ${m.matchesPlayedB === 0
+          ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'B' })">+1</button>`
+          : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'B' })">-1</button>`
+        }
                 </div>
               </div>
             </div>
@@ -381,7 +383,7 @@
     // Update queue display with drag & drop
     function updateQueueDisplay(queue) {
       const container = document.getElementById("queueContainer");
-      
+
       if (!queue || queue.length === 0) {
         container.innerHTML = '<li class="list-group-item text-center">คิววาง</li>';
         return;
@@ -403,7 +405,7 @@
                 style="width:140px" maxlength="100" required autofocus />
               <button class="btn btn-sm btn-outline-secondary" type="submit">แก้</button>
             </form>
-            <a href="/court/${courtId}/remove/${q.id}" class="btn btn-sm btn-outline-danger">ลบ</a>
+            <button class="btn btn-sm btn-outline-danger" onclick="removeQueue(${q.id})">ลบ</button>
           </div>
         </li>
       `).join('');
@@ -417,10 +419,10 @@
       const items = document.querySelectorAll('.queue-item');
       let touchItem = null;
       let touchStartY = 0;
-      
+
       items.forEach(item => {
         const handle = item.querySelector('.drag-handle');
-        
+
         // Desktop drag events - only on handle
         handle.addEventListener('dragstart', (e) => {
           draggedItem = item;
@@ -438,7 +440,7 @@
           if (!draggedItem) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
-          
+
           if (item !== draggedItem) {
             item.classList.add('drag-over');
           }
@@ -451,21 +453,21 @@
         item.addEventListener('drop', (e) => {
           if (!draggedItem) return;
           e.preventDefault();
-          
+
           if (item !== draggedItem) {
             const allItems = [...document.querySelectorAll('.queue-item')];
             const draggedIndex = allItems.indexOf(draggedItem);
             const targetIndex = allItems.indexOf(item);
-            
+
             if (draggedIndex < targetIndex) {
               item.parentNode.insertBefore(draggedItem, item.nextSibling);
             } else {
               item.parentNode.insertBefore(draggedItem, item);
             }
-            
+
             sendQueueOrder();
           }
-          
+
           item.classList.remove('drag-over');
         });
 
@@ -480,13 +482,13 @@
         handle.addEventListener('touchmove', (e) => {
           if (!touchItem) return;
           e.preventDefault();
-          
+
           const touchY = e.touches[0].clientY;
           const allItems = [...document.querySelectorAll('.queue-item')];
-          
+
           for (let other of allItems) {
             if (other === touchItem) continue;
-            
+
             const rect = other.getBoundingClientRect();
             if (touchY >= rect.top && touchY <= rect.bottom) {
               other.classList.add('drag-over');
@@ -498,29 +500,29 @@
 
         handle.addEventListener('touchend', (e) => {
           if (!touchItem) return;
-          
+
           const touchY = e.changedTouches[0].clientY;
           const allItems = [...document.querySelectorAll('.queue-item')];
-          
+
           for (let other of allItems) {
             if (other === touchItem) continue;
-            
+
             const rect = other.getBoundingClientRect();
             if (touchY >= rect.top && touchY <= rect.bottom) {
               const draggedIndex = allItems.indexOf(touchItem);
               const targetIndex = allItems.indexOf(other);
-              
+
               if (draggedIndex < targetIndex) {
                 other.parentNode.insertBefore(touchItem, other.nextSibling);
               } else {
                 other.parentNode.insertBefore(touchItem, other);
               }
-              
+
               sendQueueOrder();
               break;
             }
           }
-          
+
           touchItem.classList.remove('dragging');
           allItems.forEach(i => i.classList.remove('drag-over'));
           touchItem = null;
@@ -572,6 +574,14 @@
       document.getElementById(`edit-btn-${queueId}`).classList.remove("d-none");
     }
 
+    // Remove queue item
+    function removeQueue(queueId) {
+      socket.emit('remove-queue', {
+        courtId: parseInt(courtId),
+        queueId: parseInt(queueId)
+      });
+    }
+
     // Update live indicator visibility
     function updateLiveIndicator() {
       const indicator = document.getElementById("liveIndicator");
@@ -583,11 +593,11 @@
     function showDisconnectionOverlay() {
       const wrapper = document.getElementById("matchContainerWrapper");
       let overlay = document.getElementById("disconnectionOverlay");
-      
+
       if (overlay) {
         overlay.remove();
       }
-      
+
       overlay = document.createElement("div");
       overlay.id = "disconnectionOverlay";
       overlay.className = "disconnection-overlay";
