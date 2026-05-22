@@ -83,22 +83,30 @@ function normalizeQueuePositions(court_id, callback) {
     [court_id],
     (err, rows) => {
       if (err) return callback && callback(err);
-      const updates = rows.map((r, idx) => {
-        return new Promise((resolve, reject) => {
-          db.run(
-            "UPDATE queue SET position = ? WHERE id = ?",
-            [idx + 1, r.id],
-            e => (e ? reject(e) : resolve())
-          );
+
+      db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        const updates = rows.map((r, idx) => {
+          return new Promise((resolve, reject) => {
+            db.run(
+              "UPDATE queue SET position = ? WHERE id = ?",
+              [idx + 1, r.id],
+              e => (e ? reject(e) : resolve())
+            );
+          });
         });
+
+        Promise.all(updates)
+          .then(() => {
+            db.run("COMMIT", () => {
+              callback && callback();
+              broadcastCourtState(court_id);
+            });
+          })
+          .catch(err => {
+            db.run("ROLLBACK", () => callback && callback(err));
+          });
       });
-      Promise.all(updates)
-        .then(() => {
-          callback && callback();
-          // Broadcast after normalizing
-          broadcastCourtState(court_id);
-        })
-        .catch(callback);
     }
   );
 }
@@ -482,8 +490,8 @@ app.get("/court/:cid/end", (req, res) => {
                 [A.name, A.matchesPlayed, B.name, B.matchesPlayed, Date.now(), cid],
                 () => {
                   if (nextPairs.length > 0) {
-                    const ids = nextPairs.map(x => x.id).join(",");
-                    db.run(`DELETE FROM queue WHERE id IN (${ids}) AND court_id = ?`, [cid], () => {
+                    const placeholders = nextPairs.map(() => '?').join(',');
+                    db.run(`DELETE FROM queue WHERE id IN (${placeholders}) AND court_id = ?`, [...nextPairs.map(x => x.id), cid], () => {
                       normalizeQueuePositions(cid, () => res.redirect(`/court/${cid}`));
                     });
                   } else {
@@ -725,8 +733,8 @@ io.on("connection", (socket) => {
                   [A.name, A.matchesPlayed, B.name, B.matchesPlayed, Date.now(), cid],
                   () => {
                     if (nextPairs.length > 0) {
-                      const ids = nextPairs.map(x => x.id).join(",");
-                      db.run(`DELETE FROM queue WHERE id IN (${ids}) AND court_id = ?`, [cid], () => {
+                      const placeholders = nextPairs.map(() => '?').join(',');
+                      db.run(`DELETE FROM queue WHERE id IN (${placeholders}) AND court_id = ?`, [...nextPairs.map(x => x.id), cid], () => {
                         normalizeQueuePositions(cid, () => broadcastCourtState(cid));
                       });
                     } else {
