@@ -211,15 +211,15 @@
       <button class="btn btn-success" onclick="socket.emit('start-match', parseInt(courtId))" data-i18n="start-match-btn">เริ่มแมตช์</button>
       <button class="btn btn-warning" onclick="socket.emit('reset-match', parseInt(courtId))" data-i18n="reset-match-btn">รีเซ็ตแมตช์</button>
       <a href="/court/<%= court.id %>/clear-queue" class="btn btn-danger"
-        onclick="return confirm('ต้องการลบคิวทั้งหมดใช่หรือไม่?')" data-i18n="clear-queue-btn">
+        onclick="return confirm(t('confirm-clear-queue'))" data-i18n="clear-queue-btn">
         ล้างคิวทั้งหมด
       </a>
       <a href="/court/<%= court.id %>/history/clear" class="btn btn-outline-danger"
-        onclick="return confirm('ต้องการลบประวัติแมตช์ของคอร์ทนี้ใช่หรือไม่?')" data-i18n="clear-history-btn">
+        onclick="return confirm(t('confirm-clear-history'))" data-i18n="clear-history-btn">
         ล้างประวัติ
       </a>
       <a href="/court/<%= court.id %>/undo" class="btn btn-outline-dark"
-        onclick="return confirm('ต้องการย้อนกลับคิวเมื่อครั้งก่อนใช่หรือไม่?')" data-i18n="undo-btn">
+        onclick="return confirm(t('confirm-undo'))" data-i18n="undo-btn">
         Undo
       </a>
     </div>

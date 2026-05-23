@@ -38,7 +38,11 @@ const translations = {
     'vs': 'vs',
     'winning-team': 'Winning Team',
     'match-number': 'Match #{n}',
-    'play-time': 'Play Time'
+    'play-time': 'Play Time',
+    'confirm-clear-queue': 'Delete the entire queue?',
+    'confirm-clear-history': "Delete this court's match history?",
+    'confirm-undo': 'Undo the last queue change?',
+    'delete-court-data': 'Delete this court and all its queue data?'
   },
   th: {
     'courts-title': 'คอร์ท',
@@ -79,7 +83,11 @@ const translations = {
     'vs': 'vs',
     'winning-team': 'ทีมที่ชนะ',
     'match-number': 'แมตช์ที่ #{n}',
-    'play-time': 'เวลาเล่น'
+    'play-time': 'เวลาเล่น',
+    'confirm-clear-queue': 'ต้องการลบคิวทั้งหมดใช่หรือไม่?',
+    'confirm-clear-history': 'ต้องการลบประวัติแมตช์ของคอร์ทนี้ใช่หรือไม่?',
+    'confirm-undo': 'ต้องการย้อนกลับคิวเมื่อครั้งก่อนใช่หรือไม่?',
+    'delete-court-data': 'ต้องการลบคอร์ทและข้อมูลคิวทั้งหมดใช่หรือไม่?'
   }
 };
 
@@ -123,6 +131,11 @@ function toggleLanguage() {
 function setLanguage(lang) {
   localStorage.setItem('lang', lang);
   applyTranslations();
+}
+
+function t(key) {
+  const lang = localStorage.getItem('lang') || 'th';
+  return translations[lang][key] || key;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
