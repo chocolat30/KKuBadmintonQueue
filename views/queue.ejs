@@ -191,8 +191,9 @@
           <span class="live-indicator" id="liveIndicator"></span>
       </h3>
       <div class="court-actions">
-        <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
-        <a href="/court/<%= court.id %>/history" class="btn btn-outline-primary">ดูประวัติแมตช์</a>
+        <a href="/" class="btn btn-outline-secondary" data-i18n="back-btn">ย้อนกลับ</a>
+        <a href="/court/<%= court.id %>/history" class="btn btn-outline-primary" data-i18n="history-btn">ดูประวัติแมตช์</a>
+        <select id="langSelect" class="form-select form-select-sm w-auto d-inline" onchange="setLanguage(this.value)"><option value="th">TH</option><option value="en">EN</option></select>
         <div id="courtQR"></div>
       </div>
     </div>
@@ -200,31 +201,31 @@
     <!-- JOIN QUEUE -->
     <form action="/court/<%= court.id %>/join" method="POST" class="mb-3" id="joinForm">
       <div class="input-group">
-        <input name="name" id="playerNameInput" class="form-control" placeholder="ชื่อคู่" required />
-        <button class="btn btn-primary" type="submit">เพิ่มคู่</button>
+        <input name="name" id="playerNameInput" class="form-control" placeholder="ชื่อคู่" data-i18n="join-queue-placeholder" required />
+        <button class="btn btn-primary" type="submit" data-i18n="join-queue-btn">เพิ่มคู่</button>
       </div>
     </form>
 
     <!-- ACTION BUTTONS -->
     <div id="actionButtonsContainer" class="mb-4 d-flex gap-2 queue-actions">
-      <button class="btn btn-success" onclick="socket.emit('start-match', parseInt(courtId))">เริ่มแมตช์</button>
-      <button class="btn btn-warning" onclick="socket.emit('reset-match', parseInt(courtId))">รีเซ็ตแมตช์</button>
+      <button class="btn btn-success" onclick="socket.emit('start-match', parseInt(courtId))" data-i18n="start-match-btn">เริ่มแมตช์</button>
+      <button class="btn btn-warning" onclick="socket.emit('reset-match', parseInt(courtId))" data-i18n="reset-match-btn">รีเซ็ตแมตช์</button>
       <a href="/court/<%= court.id %>/clear-queue" class="btn btn-danger"
-        onclick="return confirm('ต้องการลบคิวทั้งหมดใช่หรือไม่?')">
+        onclick="return confirm('ต้องการลบคิวทั้งหมดใช่หรือไม่?')" data-i18n="clear-queue-btn">
         ล้างคิวทั้งหมด
       </a>
       <a href="/court/<%= court.id %>/history/clear" class="btn btn-outline-danger"
-        onclick="return confirm('ต้องการลบประวัติแมตช์ของคอร์ทนี้ใช่หรือไม่?')">
+        onclick="return confirm('ต้องการลบประวัติแมตช์ของคอร์ทนี้ใช่หรือไม่?')" data-i18n="clear-history-btn">
         ล้างประวัติ
       </a>
       <a href="/court/<%= court.id %>/undo" class="btn btn-outline-dark"
-        onclick="return confirm('ต้องการย้อนกลับคิวเมื่อครั้งก่อนใช่หรือไม่?')">
+        onclick="return confirm('ต้องการย้อนกลับคิวเมื่อครั้งก่อนใช่หรือไม่?')" data-i18n="undo-btn">
         Undo
       </a>
     </div>
 
     <!-- ACTIVE MATCH -->
-    <h4 class="mb-3">แมตช์ที่กำลังเล่น</h4>
+    <h4 class="mb-3" data-i18n="active-match-title">แมตช์ที่กำลังเล่น</h4>
 
     <div id="matchContainerWrapper" class="match-container-wrapper">
       <div id="matchContainer">
@@ -235,7 +236,7 @@
     </div>
 
     <!-- QUEUE -->
-    <h4 class="mb-3">คิวที่กำลังต่อ (คู่) - ลากเพื่อจัดลำดับ</h4>
+    <h4 class="mb-3" data-i18n="queue-title">คิวที่กำลังต่อ (คู่) - ลากเพื่อจัดลำดับ</h4>
 
     <ul class="list-group mb-4" id="queueContainer">
       <li class="list-group-item text-center">คิววาง</li>
@@ -317,7 +318,8 @@
 
       if (!match) {
         stopMatchTimer();
-        container.innerHTML = '<div class="alert alert-secondary text-center">คอร์ทว่าง</div>';
+        container.innerHTML = '<div class="alert alert-secondary text-center" data-i18n="court-empty">คอร์ทว่าง</div>';
+        applyTranslations();
         return;
       }
 
@@ -328,15 +330,15 @@
             <!-- TEAM A -->
             <div class="col-md-5">
               <div class="team-box bg-success-subtle">
-                <div class="team-name text-success">
+                <div class="team-name text-success" data-i18n="team-a">
                   Team A<br>
                   ${escapeHtml(m.teamA)}
                 </div>
-                <div class="team-meta mt-1">
+                <div class="team-meta mt-1" data-i18n="played-rounds" data-i18n-value="${m.matchesPlayedA}">
                   เล่นแล้ว: ${m.matchesPlayedA} รอบ
                 </div>
                 <div class="mt-3 d-grid gap-2">
-                  <button class="btn btn-success btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'A' })">ทีม A ชนะ</button>
+                  <button class="btn btn-success btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'A' })" data-i18n="win-a-btn">ทีม A ชนะ</button>
                   ${m.matchesPlayedA === 0
           ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'A' })">+1</button>`
           : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'A' })">-1</button>`
@@ -351,15 +353,15 @@
             <!-- TEAM B -->
             <div class="col-md-5">
               <div class="team-box bg-danger-subtle">
-                <div class="team-name text-danger">
+                <div class="team-name text-danger" data-i18n="team-b">
                   Team B<br>
                   ${escapeHtml(m.teamB)}
                 </div>
-                <div class="team-meta mt-1">
+                <div class="team-meta mt-1" data-i18n="played-rounds" data-i18n-value="${m.matchesPlayedB}">
                   เล่นแล้ว: ${m.matchesPlayedB} รอบ
                 </div>
                 <div class="mt-3 d-grid gap-2">
-                  <button class="btn btn-danger btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'B' })">ทีม B ชนะ</button>
+                  <button class="btn btn-danger btn-lg" onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'B' })" data-i18n="win-b-btn">ทีม B ชนะ</button>
                   ${m.matchesPlayedB === 0
           ? `<button class="btn btn-warning" onclick="socket.emit('add-match', { courtId: parseInt(courtId), side: 'B' })">+1</button>`
           : `<button class="btn btn-secondary" onclick="socket.emit('minus-match', { courtId: parseInt(courtId), side: 'B' })">-1</button>`
@@ -368,14 +370,15 @@
               </div>
             </div>
           </div>
-          <div class="text-muted text-center small mt-3">
+          <div class="text-muted text-center small mt-3" data-i18n="started-at" data-i18n-value="${new Date(Number(m.timestamp)).toLocaleString('th-TH')}">
             เริ่มแมตช์เมื่อ: ${new Date(Number(m.timestamp)).toLocaleString('th-TH')}
           </div>
-          <div class="text-center mt-2"> 
+          <div class="text-center mt-2">
             <span id="matchTimer" style="font-size: 1.5rem; font-weight: bold; color: #333;"></span>
           </div>
         </div>
       `;
+      applyTranslations();
       // start timer
       startMatchTimer(m.timestamp);
     }
@@ -385,7 +388,8 @@
       const container = document.getElementById("queueContainer");
 
       if (!queue || queue.length === 0) {
-        container.innerHTML = '<li class="list-group-item text-center">คิววาง</li>';
+        container.innerHTML = '<li class="list-group-item text-center" data-i18n="queue-empty">คิววาง</li>';
+        applyTranslations();
         return;
       }
 
@@ -395,21 +399,22 @@
             <span class="drag-handle" draggable="true">☰</span>
             <strong>${i + 1}.</strong>
             <span id="name-text-${q.id}" style="word-break: break-word; flex: 1 1 auto;">${escapeHtml(q.name)}</span>
-            <span class="badge bg-info" style="white-space: nowrap;">~${q.estimatedStartMinutes || 0} นาที</span>
+            <span class="badge bg-info" style="white-space: nowrap;" data-i18n="estimated-min" data-i18n-value="${q.estimatedStartMinutes || 0}">~${q.estimatedStartMinutes || 0} นาที</span>
           </div>
           <div class="d-flex flex-wrap gap-2">
             <button id="edit-btn-${q.id}" class="btn btn-sm btn-outline-primary" type="button"
-              onclick="enableEdit('${q.id}')">แก้ชื่อ</button>
+              onclick="enableEdit('${q.id}')" data-i18n="edit-name-btn">แก้ชื่อ</button>
             <form id="edit-form-${q.id}" class="d-none d-flex align-items-center gap-2" onsubmit="handleRenameSubmit(event, '${q.id}')">
               <input name="name" value="${escapeHtml(q.name)}" class="form-control form-control-sm"
                 style="width:140px" maxlength="100" required autofocus />
-              <button class="btn btn-sm btn-outline-secondary" type="submit">แก้</button>
+              <button class="btn btn-sm btn-outline-secondary" type="submit" data-i18n="save-name-btn">แก้</button>
             </form>
-            <button class="btn btn-sm btn-outline-danger" onclick="removeQueue(${q.id})">ลบ</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="removeQueue(${q.id})" data-i18n="remove-btn">ลบ</button>
           </div>
         </li>
       `).join('');
 
+      applyTranslations();
       // Add drag event listeners
       setupDragAndDrop();
     }
@@ -604,10 +609,11 @@
       overlay.innerHTML = `
         <div class="disconnection-content">
           <div class="disconnection-icon">⚠️</div>
-          <div class="disconnection-text">เซิร์ฟเวอร์หลุดการเชื่อมต่อ โปรดรอสักครู่</div>
+          <div class="disconnection-text" data-i18n="disconnected-msg">เซิร์ฟเวอร์หลุดการเชื่อมต่อ โปรดรอสักครู่</div>
         </div>
       `;
       wrapper.appendChild(overlay);
+      applyTranslations();
       document.getElementById("actionButtonsContainer").classList.add("action-buttons-disabled");
     }
 
@@ -632,6 +638,7 @@
     });
   </script>
 
+  <script src="/js/i18n.js"></script>
 </body>
 
 <footer class="app-footer text-center text-muted">

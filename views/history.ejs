@@ -9,20 +9,21 @@
 <body class="bg-light">
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3>ประวัติ <%= court ? (' - ' + court.name) : '' %></h3>
+      <h3 data-i18n="history-title">ประวัติแมตช์<%= court ? (' - ' + court.name) : '' %></h3>
       <div>
         <% if (court) { %>
-          <a href="/court/<%= court.id %>" class="btn btn-outline-secondary">ย้อนกลับ</a>
-          <a href="/court/<%= court.id %>/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นของคอร์ทนี้?')">ล้างทั้งหมด</a>
+          <a href="/court/<%= court.id %>" class="btn btn-outline-secondary" data-i18n="back-btn">ย้อนกลับ</a>
+          <a href="/court/<%= court.id %>/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นของคอร์ทนี้?')" data-i18n="clear-history-btn">ล้างประวัติ</a>
         <% } else { %>
-          <a href="/" class="btn btn-outline-secondary">ย้อนกลับ</a>
-          <a href="/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นทั้งหมดทุกคอร์ท?')">ล้างทั้งหมด</a>
+          <a href="/" class="btn btn-outline-secondary" data-i18n="back-btn">ย้อนกลับ</a>
+          <a href="/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นทั้งหมดทุกคอร์ท?')" data-i18n="clear-history-btn">ล้างประวัติ</a>
         <% } %>
+        <select id="langSelect" class="form-select form-select-sm w-auto d-inline" onchange="setLanguage(this.value)"><option value="th">TH</option><option value="en">EN</option></select>
       </div>
     </div>
 
     <% if (!history || history.length === 0) { %>
-      <div class="alert alert-info">ยังไม่มีประวัติการเล่น</div>
+      <div class="alert alert-info" data-i18n="no-history">ยังไม่มีประวัติการเล่น</div>
     <% } else { %>
       <ul class="list-group">
         <% 
@@ -38,25 +39,26 @@
             <div class="row">
               <div class="col-md-8">
                 <strong class="text-success"><%= h.teamA %></strong>
-                <span class="mx-2">vs</span>
+                <span class="mx-2" data-i18n="vs">vs</span>
                 <strong class="text-danger"><%= h.teamB %></strong>
                 <% if (h.winner) { %>
-                  <div class="mt-1">ทีมที่ชนะ: <span class="badge bg-primary"><%= h.winner %></span></div>
+                  <div class="mt-1"><span data-i18n="winning-team">ทีมที่ชนะ:</span> <span class="badge bg-primary"><%= h.winner %></span></div>
                 <% } %>
               </div>
               <div class="col-md-4 text-end">
-                <div class="small text-muted">แมตช์ที่: <strong>#<%= history.length - index %></strong></div>
+                <div class="small text-muted" data-i18n="match-number" data-i18n-value="<%= history.length - index %>">แมตช์ที่: <strong>#<%= history.length - index %></strong></div>
                 <% if (h.duration) { %>
-                  <div class="small text-muted">เวลาเล่น: <strong><%= formatDuration(h.duration) %></strong></div>
+                  <div class="small text-muted"><span data-i18n="play-time">เวลาเล่น:</span> <strong><%= formatDuration(h.duration) %></strong></div>
                 <% } %>
               </div>
             </div>
-            <div class="mt-2 text-muted small">เริ่มแมตช์ตอน: <%= new Date(Number(h.timestamp)).toLocaleString('th-TH') %></div>
+            <div class="mt-2 text-muted small" data-i18n="started-at" data-i18n-value="<%= new Date(Number(h.timestamp)).toLocaleString('th-TH') %>">เริ่มแมตช์เมื่อ: <%= new Date(Number(h.timestamp)).toLocaleString('th-TH') %></div>
           </li>
         <% }) %>
       </ul>
     <% } %>
   </div>
+  <script src="/js/i18n.js"></script>
 </body>
 
 <footer class="app-footer text-center text-muted">
