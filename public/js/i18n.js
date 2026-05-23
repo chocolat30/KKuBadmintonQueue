@@ -122,7 +122,7 @@ function applyTranslations() {
 function toggleLanguage() {
   // Deprecated: original toggle function; kept for backward compatibility.
   const currentLang = localStorage.getItem('lang') || 'th';
-  const newLang = currentLang === 'th' ? 'th' : 'en';
+  const newLang = currentLang === 'th' ? 'en' : 'th';
   localStorage.setItem('lang', newLang);
   applyTranslations();
 }
