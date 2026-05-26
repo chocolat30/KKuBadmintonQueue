@@ -127,10 +127,17 @@ const courtService = {
   async deleteCourt(cid) {
     return new Promise((resolve, reject) => {
       db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
         db.run("DELETE FROM queue WHERE court_id = ?", [cid]);
         db.run("DELETE FROM current_match WHERE court_id = ?", [cid]);
         db.run("DELETE FROM match_history WHERE court_id = ?", [cid]);
-        db.run("DELETE FROM courts WHERE id = ?", [cid], (err) => (err ? reject(err) : resolve()));
+        db.run("DELETE FROM courts WHERE id = ?", [cid], (err) => {
+          if (err) {
+            db.run('ROLLBACK', () => reject(err));
+          } else {
+            db.run('COMMIT', resolve);
+          }
+        });
       });
     });
   },

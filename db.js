@@ -42,14 +42,17 @@ db.serialize(() => {
   // ========== TABLE: queue ==========
   db.run(`
     CREATE TABLE IF NOT EXISTS queue (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       matchesPlayed INTEGER DEFAULT 0,
       position INTEGER DEFAULT 0,
       court_id INTEGER NOT NULL,
-      timestamp INTEGER DEFAULT (strftime('%s','now')*1000)
+      timestamp INTEGER DEFAULT (strftime('%s','now')*1000),
+      FOREIGN KEY(court_id) REFERENCES courts(id) ON DELETE RESTRICT
     )
   `);
+  // Index for faster lookups by court
+  db.run('CREATE INDEX IF NOT EXISTS idx_queue_court_id ON queue(court_id);');
 
   db.all("PRAGMA table_info(queue)", (err, rows) => {
     if (!rows) return;
@@ -65,15 +68,18 @@ db.serialize(() => {
   // ========== TABLE: current_match ==========
   db.run(`
     CREATE TABLE IF NOT EXISTS current_match (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INTEGER PRIMARY KEY,
       teamA TEXT NOT NULL,
       teamB TEXT NOT NULL,
       matchesPlayedA INTEGER DEFAULT 0,
       matchesPlayedB INTEGER DEFAULT 0,
       court_id INTEGER NOT NULL,
-      timestamp INTEGER DEFAULT (strftime('%s','now')*1000)
+      timestamp INTEGER DEFAULT (strftime('%s','now')*1000),
+      FOREIGN KEY(court_id) REFERENCES courts(id) ON DELETE RESTRICT
     )
   `);
+  // Index for faster lookups
+  db.run('CREATE INDEX IF NOT EXISTS idx_current_match_court_id ON current_match(court_id);');
 
   db.all("PRAGMA table_info(current_match)", (err, rows) => {
     if (!rows) return;
@@ -89,14 +95,17 @@ db.serialize(() => {
   // ========== TABLE: match_history ==========
   db.run(`
     CREATE TABLE IF NOT EXISTS match_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INTEGER PRIMARY KEY,
       teamA TEXT NOT NULL,
       teamB TEXT NOT NULL,
       winner TEXT,
       court_id INTEGER NOT NULL,
-      timestamp INTEGER NOT NULL
+      timestamp INTEGER NOT NULL,
+      FOREIGN KEY(court_id) REFERENCES courts(id) ON DELETE RESTRICT
     )
   `);
+  // Index for faster lookups by court
+  db.run('CREATE INDEX IF NOT EXISTS idx_match_history_court_id ON match_history(court_id);');
 
   db.all("PRAGMA table_info(match_history)", (err, rows) => {
     if (!rows) return;
@@ -112,7 +121,8 @@ db.serialize(() => {
   CREATE TABLE IF NOT EXISTS undo_snapshot (
     court_id INTEGER PRIMARY KEY,
     data TEXT NOT NULL,
-    timestamp INTEGER NOT NULL
+    timestamp INTEGER NOT NULL,
+    FOREIGN KEY(court_id) REFERENCES courts(id) ON DELETE RESTRICT
   )
 `);
 
