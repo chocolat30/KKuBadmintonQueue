@@ -14,7 +14,7 @@ const { registerCourtHandlers } = require("./sockets/courtSockets");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: { origin: ["http://localhost:3000", "http://127.0.0.1:3000"] }
 });
 
 // Initialize Service
@@ -33,6 +33,25 @@ app.use("/court", matchRoutes);
 
 // Sockets
 registerCourtHandlers(io);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
+// Process-level error handling
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Start server
 server.listen(3000, () => console.log("Server running on port 3000"));
