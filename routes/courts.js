@@ -19,12 +19,12 @@ router.post('/courts/add', async (req, res) => {
     await courtService.addCourt(name);
     res.redirect('/');
   } catch (err) {
-    res.redirect('/?msg=error');
+    res.redirect('/');
   }
 });
 
-// Delete court
-router.get('/court/:cid/delete', async (req, res) => {
+// Delete court through GET 
+router.post('/court/:cid/delete', async (req, res) => {
   const cid = Number(req.params.cid);
   try {
     await courtService.deleteCourt(cid);
