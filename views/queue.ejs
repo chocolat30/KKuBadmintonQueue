@@ -183,16 +183,15 @@
         <div>
           <h2 class="fw-bold mb-0">
             <%= court.name %>
-            <span class="text-success fs-6">
-              <span class="live-dot" id="liveIndicator"></span>
-              <span data-i18n="live-label">สด</span>
-            </span>
+            <span class="live-dot" id="liveIndicator"></span>
+  
           </h2>
         </div>
       </div>
 
       <div class="d-flex gap-2 align-items-center top-actions">
-        <div id="courtQR"></div>
+        <div id="courtQR" class="d-none"></div>
+            <button id="showQRBtn" class="btn btn-light border rounded-4" type="button">QR Code</button>
 
         <a href="/court/<%= court.id %>/history" class="btn btn-light border rounded-4">
           <i class="bi bi-clock-history"></i>
@@ -337,6 +336,17 @@
       text: url,
       width: 72,
       height: 72
+    });
+    // Toggle QR code visibility when button clicked
+    document.getElementById('showQRBtn').addEventListener('click', function() {
+      const qr = document.getElementById('courtQR');
+      if (qr.classList.contains('d-none')) {
+        qr.classList.remove('d-none');
+        this.textContent = 'Hide QR';
+      } else {
+        qr.classList.add('d-none');
+        this.textContent = 'QR Code';
+      }
     });
 
     socket.emit('join-court', courtId);
@@ -509,6 +519,74 @@
     }
 
     function setupDragAndDrop() {
+  const items = document.querySelectorAll('.queue-item');
+
+  items.forEach(item => {
+    const handle = item.querySelector('.drag-handle');
+
+    // Desktop drag events
+    handle.addEventListener('dragstart', () => {
+      draggedItem = item;
+      item.classList.add('dragging');
+    });
+    handle.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      items.forEach(i => i.classList.remove('drag-over'));
+      sendQueueOrder();
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (item !== draggedItem) item.classList.add('drag-over');
+    });
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      if (item !== draggedItem) {
+        const allItems = [...document.querySelectorAll('.queue-item')];
+        const draggedIndex = allItems.indexOf(draggedItem);
+        const targetIndex = allItems.indexOf(item);
+        if (draggedIndex < targetIndex) {
+          item.parentNode.insertBefore(draggedItem, item.nextSibling);
+        } else {
+          item.parentNode.insertBefore(draggedItem, item);
+        }
+      }
+      item.classList.remove('drag-over');
+    });
+
+    // Mobile touch events
+    let touchMoveHandler = null;
+    handle.addEventListener('touchstart', e => {
+      e.preventDefault();
+      draggedItem = item;
+      item.classList.add('dragging');
+    });
+    handle.addEventListener('touchend', e => {
+      e.preventDefault();
+      item.classList.remove('dragging');
+      items.forEach(i => i.classList.remove('drag-over'));
+      sendQueueOrder();
+    });
+    handle.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetItem = targetElem && targetElem.closest('.queue-item');
+      if (targetItem && targetItem !== draggedItem) {
+        const allItems = [...document.querySelectorAll('.queue-item')];
+        const draggedIndex = allItems.indexOf(draggedItem);
+        const targetIndex = allItems.indexOf(targetItem);
+        if (draggedIndex < targetIndex) {
+          targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
+        } else {
+          targetItem.parentNode.insertBefore(draggedItem, targetItem);
+        }
+      }
+    });
+  });
+}
       const items = document.querySelectorAll('.queue-item');
 
       items.forEach(item => {
@@ -553,7 +631,7 @@
           item.classList.remove('drag-over');
         });
       });
-    }
+
 
     function sendQueueOrder() {
       const items = document.querySelectorAll('.queue-item');
