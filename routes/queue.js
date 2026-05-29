@@ -25,7 +25,7 @@ router.get('/:cid', async (req, res) => {
   }
   try {
     const { court, queue, match } = await courtService.getCourtDetails(cid);
-    res.render('queue', {
+    res.json({
       queue,
       match,
       court

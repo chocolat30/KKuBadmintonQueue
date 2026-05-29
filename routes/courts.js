@@ -6,7 +6,7 @@ const courtService = require('../services/courtService');
 router.get('/', async (req, res) => {
   try {
     const courts = await courtService.getAllCourts();
-    res.render('courts', { courts });
+    res.json({ courts });
   } catch (err) {
     res.status(500).send(err.message);
   }

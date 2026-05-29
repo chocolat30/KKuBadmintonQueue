@@ -6,7 +6,7 @@ const courtService = require('../services/courtService');
 router.get('/history', async (req, res) => {
   try {
     const history = await courtService.getGlobalHistory();
-    res.render('history', { history, court: null, msg: req.query.msg });
+    res.json({ history, court: null, msg: req.query.msg });
   } catch (err) {
     res.status(500).send(err.message);
   }

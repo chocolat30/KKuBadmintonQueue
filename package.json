@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "npm run client:build && nodemon server.js",
+    "client:build": "cd ~/Downloads/ui && npm install && npm run build && cp -r dist/* /home/pi/gits/KKuBadmintonQueue/public/"
   },
   "keywords": [],
   "author": "",
