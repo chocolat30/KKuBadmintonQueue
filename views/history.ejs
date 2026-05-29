@@ -1,68 +1,163 @@
-<!-- views/history.ejs -->
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ประวัติแมตช์</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <style>
+    body {
+      background: #f3f4f6;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    .topbar {
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 14px 0;
+      margin-bottom: 22px;
+    }
+
+    .match-card {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid #e5e7eb;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+    }
+
+    .team-box {
+      border-radius: 18px;
+      padding: 18px;
+      border: 2px solid transparent;
+      min-height: 140px;
+    }
+
+    .winner {
+      border-color: #22c55e;
+      background: #edf9f0;
+    }
+
+    .loser {
+      border-color: #e5e7eb;
+      background: #fafafa;
+    }
+
+    .score {
+      font-size: 2rem;
+      font-weight: 800;
+    }
+
+    .winner-badge {
+      background: #dcfce7;
+      color: #15803d;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-weight: 700;
+      display: inline-block;
+      margin-top: 10px;
+    }
+  </style>
 </head>
-<body class="bg-light">
-  <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3 data-i18n="history-title">ประวัติแมตช์<%= court ? (' - ' + court.name) : '' %></h3>
-      <div>
-        <% if (court) { %>
-          <a href="/court/<%= court.id %>" class="btn btn-outline-secondary" data-i18n="back-btn">ย้อนกลับ</a>
-          <a href="/court/<%= court.id %>/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นของคอร์ทนี้?')" data-i18n="clear-history-btn">ล้างประวัติ</a>
-        <% } else { %>
-          <a href="/" class="btn btn-outline-secondary" data-i18n="back-btn">ย้อนกลับ</a>
-          <a href="/history/clear" class="btn btn-danger" onclick="return confirm('ต้องการล้างประวัติการเล่นทั้งหมดทุกคอร์ท?')" data-i18n="clear-history-btn">ล้างประวัติ</a>
-        <% } %>
-        <select id="langSelect" class="form-select form-select-sm w-auto d-inline" onchange="setLanguage(this.value)"><option value="th">TH</option><option value="en">EN</option></select>
+
+<body>
+
+  <div class="topbar">
+    <div class="container d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-3">
+        <a href="<%= court ? '/court/' + court.id : '/' %>" class="btn btn-light border rounded-4">
+          <i class="bi bi-arrow-left"></i>
+        </a>
+
+    <h3 class="mb-0 fw-bold" data-i18n="history-title" data-i18n-value="${court ? court.name : 'ทั้งหมด'}">
+          ประวัติแมตช์<%= court ? (' - ' + court.name) : '' %>
+        </h3>
+      </div>
+
+      <div class="d-flex gap-2 align-items-center">
+        <a href="<%= court ? '/court/' + court.id + '/history/clear' : '/history/clear' %>"
+          class="btn btn-outline-danger rounded-4"
+          onclick="return confirm(t('delete-court-data'))">
+          <i class="bi bi-trash"></i>
+          <span data-i18n="clear-history-btn">ล้างประวัติ</span>
+        </a>
+
+        <select id="langSelect" class="form-select form-select-sm w-auto d-inline"
+          onchange="setLanguage(this.value)">
+          <option value="th">TH</option>
+          <option value="en">EN</option>
+        </select>
       </div>
     </div>
-
-    <% if (!history || history.length === 0) { %>
-      <div class="alert alert-info" data-i18n="no-history">ยังไม่มีประวัติการเล่น</div>
-    <% } else { %>
-      <ul class="list-group">
-        <% 
-          function formatDuration(ms) {
-            if (!ms || ms < 0) return '-';
-            const minutes = Math.floor(ms / 60000);
-            const seconds = Math.floor((ms % 60000) / 1000);
-            return `${minutes}:${String(seconds).padStart(2, '0')}`;
-          }
-        %>
-        <% history.forEach((h, index) => { %>
-          <li class="list-group-item">
-            <div class="row">
-              <div class="col-md-8">
-                <strong class="text-success"><%= h.teamA %></strong>
-                <span class="mx-2" data-i18n="vs">vs</span>
-                <strong class="text-danger"><%= h.teamB %></strong>
-                <% if (h.winner) { %>
-                  <div class="mt-1"><span data-i18n="winning-team">ทีมที่ชนะ:</span> <span class="badge bg-primary"><%= h.winner %></span></div>
-                <% } %>
-              </div>
-              <div class="col-md-4 text-end">
-                <div class="small text-muted" data-i18n="match-number" data-i18n-value="<%= history.length - index %>">แมตช์ที่: <strong>#<%= history.length - index %></strong></div>
-                <% if (h.duration) { %>
-                  <div class="small text-muted"><span data-i18n="play-time">เวลาเล่น:</span> <strong><%= formatDuration(h.duration) %></strong></div>
-                <% } %>
-              </div>
-            </div>
-            <div class="mt-2 text-muted small" data-i18n="started-at" data-i18n-value="<%= new Date(Number(h.timestamp)).toLocaleString('th-TH') %>">เริ่มแมตช์เมื่อ: <%= new Date(Number(h.timestamp)).toLocaleString('th-TH') %></div>
-          </li>
-        <% }) %>
-      </ul>
-    <% } %>
   </div>
+
+  <div class="container pb-4">
+
+    <%
+      function formatDuration(ms) {
+        if (!ms || ms < 0) return '-';
+        const minutes = Math.floor(ms / 60000);
+        const seconds = Math.floor((ms % 60000) / 1000);
+        return `${minutes}:${String(seconds).padStart(2, '0')}`;
+      }
+    %>
+
+    <% history.forEach((h, index) => { %>
+      <div class="match-card">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="badge bg-light text-dark rounded-pill px-3 py-2 fs-6">
+            <span data-i18n="match-number" data-i18n-value="<%= history.length - index %>"><%= history.length - index %></span>
+          </span>
+
+          <div class="text-muted small d-flex gap-3">
+            <span>
+              <i class="bi bi-clock"></i>
+              <%= formatDuration(h.duration) %>
+            </span>
+
+            <span>
+              <i class="bi bi-calendar"></i>
+              <%= new Date(Number(h.timestamp)).toLocaleString('th-TH') %>
+            </span>
+          </div>
+        </div>
+
+        <div class="row align-items-center g-3">
+
+          <div class="col-md-5">
+            <div class="team-box <%= h.winner === h.teamA ? 'winner' : 'loser' %>">
+              <div class="fw-semibold text-secondary">ทีม A <%= h.winner === h.teamA ? '🏆' : '' %></div>
+              <div class="fs-4 fw-bold"><%= h.teamA %></div>
+            </div>
+          </div>
+
+          <div class="col-md-2 text-center fw-bold text-secondary">
+            VS
+          </div>
+
+          <div class="col-md-5">
+            <div class="team-box <%= h.winner === h.teamB ? 'winner' : 'loser' %>">
+              <div class="fw-semibold text-secondary">ทีม B <%= h.winner === h.teamB ? '🏆' : '' %></div>
+              <div class="fs-4 fw-bold"><%= h.teamB %></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center">
+          <div class="winner-badge">
+            ผู้ชนะ: <%= h.winner %>
+          </div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
   <script src="/js/i18n.js"></script>
 </body>
-
-<footer class="app-footer text-center text-muted">
-  Made by <a href="https://github.com/chocolat30" target="_blank">P.Raccoon</a> | For the gang :-))
-</footer>
 
 </html>
