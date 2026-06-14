@@ -42,7 +42,8 @@ const translations = {
     'confirm-clear-queue': 'Delete the entire queue?',
     'confirm-clear-history': "Delete this court's match history?",
     'confirm-undo': 'Undo the last queue change?',
-    'delete-court-data': 'Delete this court and all its queue data?'
+    'delete-court-data': 'Delete this court and all its queue data?',
+    'pair-count': 'Pairs: {n}'
   },
   th: {
     'courts-title': 'คอร์ท',
@@ -88,7 +89,8 @@ const translations = {
     'confirm-clear-queue': 'ต้องการลบคิวทั้งหมดใช่หรือไม่?',
     'confirm-clear-history': 'ต้องการลบประวัติแมตช์ของคอร์ทนี้ใช่หรือไม่?',
     'confirm-undo': 'ต้องการย้อนกลับคิวเมื่อครั้งก่อนใช่หรือไม่?',
-    'delete-court-data': 'ต้องการลบคอร์ทและข้อมูลคิวทั้งหมดใช่หรือไม่?'
+    'delete-court-data': 'ต้องการลบคอร์ทและข้อมูลคิวทั้งหมดใช่หรือไม่?',
+    'pair-count': 'จำนวนคู่: {n}'
   }
 };
 
