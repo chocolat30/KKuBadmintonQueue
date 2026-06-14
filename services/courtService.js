@@ -100,7 +100,16 @@ const courtService = {
   // --- Court Management ---
   async getAllCourts() {
     return new Promise((resolve, reject) => {
-      db.all("SELECT * FROM courts ORDER BY id ASC", (err, rows) => {
+      const sql = `
+        SELECT
+          c.id,
+          c.name,
+          (SELECT COUNT(*) FROM queue WHERE court_id = c.id) +
+          (SELECT COUNT(*) FROM current_match WHERE court_id = c.id) * 2 AS pairs
+        FROM courts c
+        ORDER BY c.id ASC
+      `;
+      db.all(sql, (err, rows) => {
         if (err) return reject(err);
         resolve(rows || []);
       });

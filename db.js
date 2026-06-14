@@ -18,7 +18,8 @@ db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS courts (
       id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      pairs INTEGER DEFAULT 0
     )
   `);
 
@@ -36,6 +37,8 @@ db.serialize(() => {
       `);
       db.run(`INSERT INTO courts (id, name) SELECT id, name FROM courts_old`);
       db.run(`DROP TABLE courts_old`);
+      // Add pairs column if missing (for existing tables without it)
+      db.run('ALTER TABLE courts ADD COLUMN IF NOT EXISTS pairs INTEGER DEFAULT 0');
     }
   });
 
