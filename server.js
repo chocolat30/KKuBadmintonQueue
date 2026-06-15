@@ -56,6 +56,6 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Start server
 const port = process.env.PORT || 3000;
-server.listen(port, () => console.log(`Server running on port ${port}`));
+// server.listen(port, () => console.log(`Server running on port ${port}`));
 
 module.exports = app;
