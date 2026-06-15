@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const http = require("http");
 const { Server } = require("socket.io");
+require("dotenv").config().parsed || {};
 
 const db = require("./db");
 const courtService = require("./services/courtService");
@@ -54,4 +55,5 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Start server
-server.listen(3000, () => console.log("Server running on port 3000"));
+const port = process.env.PORT || 3000;
+server.listen(port, () => console.log(`Server running on port ${port}`));
