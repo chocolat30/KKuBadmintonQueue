@@ -47,15 +47,30 @@ const courtService = {
                 [court_id],
                 (e3, history) => {
                   snapshot.match_history = history || [];
+                  const ts = Date.now();
                   db.run(
                     `
                     INSERT INTO undo_snapshot (court_id, data, timestamp)
                     VALUES (?, ?, ?)
-                    ON CONFLICT(court_id)
-                    DO UPDATE SET data=excluded.data, timestamp=excluded.timestamp
                     `,
-                    [court_id, JSON.stringify(snapshot), Date.now()],
-                    (err) => (err ? reject(err) : resolve())
+                    [court_id, JSON.stringify(snapshot), ts],
+                    (err) => {
+                      if (err) return reject(err);
+                      // Keep only the latest 10 snapshots per court
+                      db.run(
+                        `
+                        DELETE FROM undo_snapshot
+                        WHERE court_id = ? AND id NOT IN (
+                          SELECT id FROM undo_snapshot
+                          WHERE court_id = ?
+                          ORDER BY timestamp DESC
+                          LIMIT 10
+                        )
+                        `,
+                        [court_id, court_id],
+                        (err2) => (err2 ? reject(err2) : resolve())
+                      );
+                    }
                   );
                 }
               );
@@ -233,35 +248,42 @@ const courtService = {
 
   async undoAction(cid) {
     return new Promise((resolve, reject) => {
-      db.get("SELECT data FROM undo_snapshot WHERE court_id=?", [cid], (err, row) => {
-        if (err) return reject(err);
-        if (!row) return reject(new Error("nothing_to_undo"));
-        const snap = JSON.parse(row.data);
+      // Get the most recent snapshot (ordered by timestamp DESC)
+      db.get(
+        "SELECT id, data FROM undo_snapshot WHERE court_id = ? ORDER BY timestamp DESC LIMIT 1",
+        [cid],
+        (err, row) => {
+          if (err) return reject(err);
+          if (!row) return reject(new Error("nothing_to_undo"));
+          const snap = JSON.parse(row.data);
+          const snapshotId = row.id;
 
-        db.serialize(() => {
-          db.run("DELETE FROM queue WHERE court_id=?", [cid]);
-          db.run("DELETE FROM current_match WHERE court_id=?", [cid]);
-          db.run("DELETE FROM match_history WHERE court_id=?", [cid]);
+          db.serialize(() => {
+            db.run("DELETE FROM queue WHERE court_id = ?", [cid]);
+            db.run("DELETE FROM current_match WHERE court_id = ?", [cid]);
+            db.run("DELETE FROM match_history WHERE court_id = ?", [cid]);
 
-          snap.queue.forEach(q => {
-            db.run("INSERT INTO queue VALUES (?,?,?,?,?,?)", [q.id, q.name, q.matchesPlayed, q.position, q.court_id, q.timestamp]);
+            snap.queue.forEach(q => {
+              db.run("INSERT INTO queue VALUES (?,?,?,?,?,?)", [q.id, q.name, q.matchesPlayed, q.position, q.court_id, q.timestamp]);
+            });
+
+            if (snap.current_match) {
+              const m = snap.current_match;
+              db.run("INSERT INTO current_match VALUES (?,?,?,?,?,?,?)", [m.id, m.teamA, m.teamB, m.matchesPlayedA, m.matchesPlayedB, m.court_id, m.timestamp]);
+            }
+
+            snap.match_history.forEach(h => {
+              db.run("INSERT INTO match_history (id, teamA, teamB, winner, court_id, timestamp, duration) VALUES (?,?,?,?,?,?,?)", [h.id, h.teamA, h.teamB, h.winner, h.court_id, h.timestamp, h.duration]);
+            });
+
+            // Only delete the specific snapshot that was just restored, not all of them
+            db.run("DELETE FROM undo_snapshot WHERE id = ?", [snapshotId], async () => {
+              await this.broadcastCourtState(cid);
+              resolve();
+            });
           });
-
-          if (snap.current_match) {
-            const m = snap.current_match;
-            db.run("INSERT INTO current_match VALUES (?,?,?,?,?,?,?)", [m.id, m.teamA, m.teamB, m.matchesPlayedA, m.matchesPlayedB, m.court_id, m.timestamp]);
-          }
-
-          snap.match_history.forEach(h => {
-            db.run("INSERT INTO match_history (id, teamA, teamB, winner, court_id, timestamp, duration) VALUES (?,?,?,?,?,?,?)", [h.id, h.teamA, h.teamB, h.winner, h.court_id, h.timestamp, h.duration]);
-          });
-
-          db.run("DELETE FROM undo_snapshot WHERE court_id=?", [cid], async () => {
-            await this.broadcastCourtState(cid);
-            resolve();
-          });
-        });
-      });
+        }
+      );
     });
   },
 

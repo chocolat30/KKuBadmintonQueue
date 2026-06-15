@@ -98,8 +98,9 @@ router.get('/:cid/undo', async (req, res) => {
     await courtService.undoAction(cid);
     res.redirect(`/court/${cid}?msg=undone`);
   } catch (err) {
-    if (err.message === 'nothing_to_undo') return res.json({ success: false, msg: 'nothing_to_undo' });
-    res.status(500).send(err.message);
+    if (err.message === 'nothing_to_undo') return res.redirect(`/court/${cid}?msg=undoerror`);
+    res.json({ success: false, msg: 'nothing_to_undo' });
+    res.status(500).send(err.message);    
   }
 });
 
@@ -157,18 +158,6 @@ router.post('/:cid/rename/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  }
-});
-
-// Undo last action
-router.get('/:cid/undo', async (req, res) => {
-  const cid = Number(req.params.cid);
-  try {
-    await courtService.undoAction(cid);
-    res.redirect(`/court/${cid}?msg=undone`);
-  } catch (err) {
-    if (err.message === 'nothing_to_undo') return res.json({ success: false, msg: 'nothing_to_undo' });
-    res.status(500).send(err.message);
   }
 });
 

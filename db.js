@@ -122,12 +122,14 @@ db.serialize(() => {
   // ========== TABLE: undo_snapshot ==========
   db.run(`
   CREATE TABLE IF NOT EXISTS undo_snapshot (
-    court_id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    court_id INTEGER NOT NULL,
     data TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
-    FOREIGN KEY(court_id) REFERENCES courts(id) ON DELETE RESTRICT
+    FOREIGN KEY(court_id) REFERENCES courts(id) ON DELETE CASCADE
   )
 `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_undo_snapshot_court_ts ON undo_snapshot(court_id, timestamp DESC)');
 
 
 });
