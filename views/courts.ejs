@@ -112,6 +112,10 @@
                         placeholder="ชื่อคอร์ท"
                         data-i18n="court-name-placeholder" />
 
+                    <input name="password" type="password" class="form-control form-control-lg"
+                        placeholder="รหัสผ่าน (ไม่เกิน 10 ตัว, ว่างเพื่อเปิดสาธารณะ)"
+                        maxlength="10" />
+
                     <button class="btn btn-green btn-lg px-4 btn-soft" data-i18n="add-court-btn">
                         <i class="bi bi-plus-lg"></i>
                         เพิ่ม
@@ -133,13 +137,25 @@
                         <div class="court-card h-100">
                             <div class="card-body d-flex flex-column">
                                 <div class="badge bg-info position-absolute top-0 end-0 m-2" data-i18n="pair-counter" data-i18n-value="<%= c.pairs %>"><%= c.pairs %></div>
-                                <div class="court-title"><%= c.name %></div>
+                                <div class="court-title">
+                                    <% if (c.password) { %>
+                                        <i class="bi bi-lock-fill text-warning me-2"></i>
+                                    <% } %>
+                                    <%= c.name %>
+                                </div>
 
-                                <a href="/court/<%= c.id %>"
-                                    class="btn btn-green btn-soft w-100 mb-2" data-i18n="open-court-btn">
-                                    <i class="bi bi-box-arrow-up-right"></i>
-                                    เปิด
-                                </a>
+                                <% if (c.password) { %>
+                                    <a href="/court/<%= c.id %>/open"
+                                       class="btn btn-green btn-soft w-100 mb-2" data-i18n="open-court-btn"
+                                       onclick="if(!confirm('<%= c.name %>: ระบบต้องการรหัสผ่านเพื่อเปิดคอร์ท')) return false;">
+                                        <i class="bi bi-box-arrow-up-right"></i> เปิด
+                                    </a>
+                                <% } else { %>
+                                    <a href="/court/<%= c.id %>"
+                                       class="btn btn-green btn-soft w-100 mb-2" data-i18n="open-court-btn">
+                                        <i class="bi bi-box-arrow-up-right"></i> เปิด
+                                    </a>
+                                <% } %>
 
                                 <div class="d-flex gap-2 mt-1">
                                     <a href="/court/<%= c.id %>/history" data-i18n="history-btn"

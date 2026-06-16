@@ -119,6 +119,7 @@ const courtService = {
         SELECT
           c.id,
           c.name,
+          c.password,
           (SELECT COUNT(*) FROM queue WHERE court_id = c.id) +
           (SELECT COUNT(*) FROM current_match WHERE court_id = c.id) * 2 AS pairs
         FROM courts c
@@ -131,7 +132,16 @@ const courtService = {
     });
   },
 
-  async addCourt(name) {
+  async getCourtById(cid) {
+    return new Promise((resolve, reject) => {
+      db.get("SELECT * FROM courts WHERE id = ?", [cid], (err, court) => {
+        if (err) return reject(err);
+        resolve(court || null);
+      });
+    });
+  },
+
+  async addCourt(name, password) {
     return new Promise((resolve, reject) => {
       db.all("SELECT id FROM courts ORDER BY id ASC", (err, rows) => {
         if (err) return reject(err);
@@ -143,7 +153,11 @@ const courtService = {
           }
           newId = rows.length + 1;
         }
-        db.run("INSERT INTO courts (id, name) VALUES (?, ?)", [newId, name], (e) => (e ? reject(e) : resolve()));
+        db.run(
+          "INSERT INTO courts (id, name, password) VALUES (?, ?, ?)",
+          [newId, name, password || null],
+          (e) => (e ? reject(e) : resolve())
+        );
       });
     });
   },
