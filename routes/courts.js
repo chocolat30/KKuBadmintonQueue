@@ -40,6 +40,31 @@ router.post('/court/:cid/delete', async (req, res) => {
 });
 
 /// Open a court – if the court has a password, show a small form first
+router.post('/court/:cid/open', async (req, res) => {
+  const cid = Number(req.params.cid);
+  const supplied = ((req.body && req.body.password) || '').trim();
+
+  if (!Number.isInteger(cid) || cid <= 0) {
+    return res.status(400).send('Invalid court id');
+  }
+  try {
+    const court = await courtService.getCourtById(cid);
+    if (!court) return res.status(404).send('Court not found');
+
+    // If the court is password‑protected ...
+    if (court.password) {
+      // ... and no password was supplied or mismatch -> 403
+      if ((!supplied) || supplied !== court.password) {
+        return res.status(403).send('Incorrect password');
+      }
+    }
+    // Password ok (or court is open) -> tell client to navigate
+    return res.json({ ok: true, location: `/court/${cid}` });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 router.get('/court/:cid/open', async (req, res) => {
   const cid = Number(req.params.cid);
   const supplied = (req.query.password || '').trim();

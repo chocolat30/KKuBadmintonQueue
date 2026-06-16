@@ -106,15 +106,19 @@
     <div class="container">
 
         <div class="page-card mb-4">
-            <form action="/courts/add" method="POST">
+            <form action="/courts/add" method="POST" id="addCourtForm">
                 <div class="d-flex gap-3 flex-column flex-md-row">
                     <input name="name" class="form-control form-control-lg"
                         placeholder="ชื่อคอร์ท"
                         data-i18n="court-name-placeholder" />
 
-                    <input name="password" type="password" class="form-control form-control-lg"
-                        placeholder="รหัสผ่าน (ไม่เกิน 10 ตัว, ว่างเพื่อเปิดสาธารณะ)"
-                        maxlength="10" />
+                    <input type="hidden" name="password" id="addCourtPassword" value="" />
+
+                    <button type="button" id="setPasswordBtn"
+                        class="btn btn-outline-warning btn-lg px-3 btn-soft text-nowrap"
+                        data-i18n="set-password-btn">
+                        <i class="bi bi-key"></i> ตั้งรหัสผ่าน
+                    </button>
 
                     <button class="btn btn-green btn-lg px-4 btn-soft" data-i18n="add-court-btn">
                         <i class="bi bi-plus-lg"></i>
@@ -145,11 +149,10 @@
                                 </div>
 
                                 <% if (c.password) { %>
-                                    <a href="/court/<%= c.id %>/open"
-                                       class="btn btn-green btn-soft w-100 mb-2" data-i18n="open-court-btn"
-                                       onclick="if(!confirm('<%= c.name %>: ระบบต้องการรหัสผ่านเพื่อเปิดคอร์ท')) return false;">
+                                    <button data-open-court="<%= c.id %>"
+                                       class="btn btn-green btn-soft w-100 mb-2" data-i18n="open-court-btn">
                                         <i class="bi bi-box-arrow-up-right"></i> เปิด
-                                    </a>
+                                    </button>
                                 <% } else { %>
                                     <a href="/court/<%= c.id %>"
                                        class="btn btn-green btn-soft w-100 mb-2" data-i18n="open-court-btn">
@@ -185,7 +188,179 @@
         Made by <a href="https://github.com/chocolat30" target="_blank">P.Raccoon</a>
     </div>
 
-    <script src="/js/i18n.js"></script>
-</body>
+    <div class="modal fade" id="passwordModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="password-modal-title">กรุณากรอกรหัสผ่าน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="passwordForm" novalidate>
+                    <div class="modal-body">
+                        <input type="password" id="modalPassword" class="form-control"
+                            maxlength="10" autocomplete="current-password"
+                            data-i18n="password-modal-placeholder" />
+                        <div id="passwordError" class="invalid-feedback d-none"
+                            data-i18n="password-modal-error"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light border btn-soft"
+                            data-bs-dismiss="modal" data-i18n="back-btn">ย้อนกลับ</button>
+                        <button type="submit" class="btn btn-green btn-soft" data-i18n="password-modal-btn">
+                            <i class="bi bi-unlock"></i> เปิดคอร์ท
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-</html>
+    <div class="modal fade" id="setPasswordModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="set-password-modal-title">ตั้งรหัสผ่าน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="password" id="setPasswordInput" class="form-control form-control-lg"
+                        maxlength="10" autocomplete="new-password"
+                        data-i18n="set-password-modal-placeholder" />
+                    <div id="setPasswordHint" class="form-text mt-2" data-i18n="set-password-modal-hint"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="clearPasswordBtn" class="btn btn-outline-danger btn-soft me-auto">
+                        <i class="bi bi-x-circle"></i> <span data-i18n="set-password-modal-clear">ลบรหัสผ่าน</span>
+                    </button>
+                    <button type="button" class="btn btn-light border btn-soft"
+                        data-bs-dismiss="modal" data-i18n="back-btn">ย้อนกลับ</button>
+                    <button type="button" id="savePasswordBtn" class="btn btn-green btn-soft">
+                        <i class="bi bi-check-lg"></i> <span data-i18n="set-password-modal-save">ตกลง</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const form = document.getElementById('passwordForm');
+        const input = document.getElementById('modalPassword');
+        const errorBox = document.getElementById('passwordError');
+        const modal = document.getElementById('passwordModal');
+        const passwordModal = bootstrap.Modal.getOrCreateInstance(modal);
+
+        let currentCid = null;
+
+        // Attach to all open buttons (lock icon + regular)
+        document.querySelectorAll('[data-open-court]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                currentCid = btn.dataset.openCourt;
+                form.reset();
+                errorBox.classList.add('d-none');
+                input.classList.remove('is-invalid');
+                passwordModal.show();
+                setTimeout(() => input.focus(), 300);
+            });
+        });
+
+        form.addEventListener('submit', async ev => {
+            ev.preventDefault();
+            const pw = input.value.trim();
+
+            input.classList.remove('is-invalid');
+            errorBox.classList.add('d-none');
+
+            if (!pw) {
+                input.classList.add('is-invalid');
+                errorBox.textContent = t('password-modal-required');
+                errorBox.classList.remove('d-none');
+                return;
+            }
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + t('password-modal-btn');
+
+            try {
+                const res = await fetch(`/court/${currentCid}/open`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pw })
+                });
+
+                if (res.ok || res.redirected) {
+                    const loc = res.headers.get('location') || `/court/${currentCid}`;
+                    window.location.href = loc;
+                    return;
+                }
+
+                const msg = await res.text();
+                if (res.status === 403) {
+                    input.classList.add('is-invalid');
+                    errorBox.textContent = t('password-modal-error');
+                    errorBox.classList.remove('d-none');
+                    return;
+                }
+
+                throw new Error(msg || 'open_failed');
+            } catch (err) {
+                window.location.href = `/court/${currentCid}?msg=open_error`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-unlock"></i> ' + t('password-modal-btn');
+            }
+        });
+
+        // --- Set password modal (add court form) ---
+        const setPasswordModalEl = document.getElementById('setPasswordModal');
+        const setPasswordModal = bootstrap.Modal.getOrCreateInstance(setPasswordModalEl);
+        const setPasswordInput = document.getElementById('setPasswordInput');
+        const addCourtPassword = document.getElementById('addCourtPassword');
+        const setPasswordBtn = document.getElementById('setPasswordBtn');
+        const savePasswordBtn = document.getElementById('savePasswordBtn');
+        const clearPasswordBtn = document.getElementById('clearPasswordBtn');
+
+        function updateSetPasswordBtn() {
+            if (addCourtPassword.value) {
+                setPasswordBtn.innerHTML = '<i class="bi bi-lock-fill"></i> ' + t('set-password-btn');
+                setPasswordBtn.classList.remove('btn-outline-warning');
+                setPasswordBtn.classList.add('btn-warning');
+            } else {
+                setPasswordBtn.innerHTML = '<i class="bi bi-key"></i> ' + t('set-password-btn');
+                setPasswordBtn.classList.remove('btn-warning');
+                setPasswordBtn.classList.add('btn-outline-warning');
+            }
+        }
+
+        setPasswordBtn.addEventListener('click', () => {
+            setPasswordInput.value = addCourtPassword.value;
+            setPasswordModal.show();
+            setTimeout(() => setPasswordInput.focus(), 300);
+        });
+
+        savePasswordBtn.addEventListener('click', () => {
+            const val = setPasswordInput.value.trim();
+            addCourtPassword.value = val;
+            updateSetPasswordBtn();
+            setPasswordModal.hide();
+        });
+
+        clearPasswordBtn.addEventListener('click', () => {
+            setPasswordInput.value = '';
+            addCourtPassword.value = '';
+            updateSetPasswordBtn();
+            setPasswordModal.hide();
+        });
+
+        // Initialize button state
+        updateSetPasswordBtn();
+    });
+    </script>
+    </body>
+
+    </html>

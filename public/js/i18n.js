@@ -45,7 +45,18 @@ const translations = {
     'confirm-clear-history': "Delete this court's match history?",
     'confirm-undo': 'Undo the last queue change?',
     'delete-court-data': 'Delete this court and all its queue data?',
-    'pair-counter': 'Pairs: {n}'
+    'pair-counter': 'Pairs: {n}',
+    'password-modal-title': 'Enter Password',
+    'password-modal-btn': 'Open',
+    'password-modal-placeholder': 'Enter password',
+    'password-modal-required': 'Please enter the password.',
+    'password-modal-error': 'Incorrect password',
+    'set-password-btn': 'Set Password',
+    'set-password-modal-title': 'Set Password',
+    'set-password-modal-placeholder': 'Password (max 10 chars)',
+    'set-password-modal-hint': 'Leave empty for a public court (no password).',
+    'set-password-modal-clear': 'Remove Password',
+    'set-password-modal-save': 'Save'
   },
   th: {
     'courts-title': 'คอร์ท',
@@ -94,7 +105,18 @@ const translations = {
     'confirm-clear-history': 'ต้องการลบประวัติแมตช์ของคอร์ทนี้ใช่หรือไม่?',
     'confirm-undo': 'ต้องการย้อนกลับคิวเมื่อครั้งก่อนใช่หรือไม่?',
     'delete-court-data': 'ต้องการลบคอร์ทและข้อมูลคิวทั้งหมดใช่หรือไม่?',
-    'pair-counter': 'จำนวนคู่: {n}'
+    'pair-counter': 'จำนวนคู่: {n}',
+    'password-modal-title': 'กรุณากรอกรหัสผ่าน',
+    'password-modal-btn': 'เปิดคอร์ท',
+    'password-modal-placeholder': 'รหัสผ่าน',
+    'password-modal-required': 'กรุณากรอกรหัสผ่าน',
+    'password-modal-error': 'รหัสผ่านไม่ถูกต้อง',
+    'set-password-btn': 'ตั้งรหัสผ่าน',
+    'set-password-modal-title': 'ตั้งรหัสผ่าน',
+    'set-password-modal-placeholder': 'รหัสผ่าน (ไม่เกิน 10 ตัว)',
+    'set-password-modal-hint': 'ปล่อยว่างเพื่อเปิดสาธารณะ (ไม่มีรหัสผ่าน)',
+    'set-password-modal-clear': 'ลบรหัสผ่าน',
+    'set-password-modal-save': 'ตกลง',
   }
 };
 

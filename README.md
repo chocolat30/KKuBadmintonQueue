@@ -12,6 +12,8 @@ Built with **Node.js, Express, SQLite, and EJS**.
 ### Court Management
 - Add / delete courts
 - Each court has its **own queue, match, and history**
+- Optional **password protection** per court (set via popup modal; leave empty for public access)
+- Password entry for locked courts via **inline popup modal** (no page navigation)
 - QR Code for quick court access (Local site)
 
 ### Queue System
@@ -79,6 +81,10 @@ Prevents accidental data loss
         courts.ejs
         queue.ejs
         history.ejs
+        court-open-form.ejs
+    public/
+        js/
+            i18n.js
     README.md
 ```
 
@@ -123,7 +129,9 @@ http://localhost:3000
 - [x] Undo after mistakes  
 - [x] Match reset  
 - [x] Empty queue edge cases  
-- [x] Mobile screen layouts  
+- [x] Mobile screen layouts
+- [x] Password-protected court creation (popup modal)
+- [x] Password entry for locked courts (inline popup, no page navigation)  
 
 ---
 
@@ -139,8 +147,8 @@ http://localhost:3000
 
 - Player statistics
 - Court availability dashboard
-- Auth / admin mode
-- Multi-language UI
+- ~~Auth / admin mode~~ (password protection per court added in v2.0.0)
+- ~~Multi-language UI~~ (Thai/English i18n added)
 
 ---
 
