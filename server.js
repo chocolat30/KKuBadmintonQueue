@@ -19,13 +19,29 @@ const io = new Server(server, {
   cors: { origin: [`http://localhost:${port}`, `http://127.0.0.1:${port}`] }
 });
 
+// Cache-buster version from package.json
+const APP_VERSION = require('./package.json').version;
+
 // Initialize Service
 courtService.init(io);
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.static("public"));
+app.use(express.static("public", {
+  setHeaders: (res, path) => {
+    if (path.endsWith("i18n.js")) {
+      // Always revalidate i18n.js — prevents stale cached translations
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  }
+}));
+
+// Inject app version into all templates for cache-busting
+app.use((req, res, next) => {
+  res.locals.APP_VERSION = APP_VERSION;
+  next();
+});
 
 // Routes
 app.use("/", courtRoutes);
