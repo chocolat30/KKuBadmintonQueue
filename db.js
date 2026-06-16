@@ -19,7 +19,8 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS courts (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
-      pairs INTEGER DEFAULT 0
+      pairs INTEGER DEFAULT 0,
+      password TEXT DEFAULT NULL
     )
   `);
 
@@ -32,13 +33,25 @@ db.serialize(() => {
       db.run(`
         CREATE TABLE courts (
           id INTEGER PRIMARY KEY,
-          name TEXT NOT NULL
+          name TEXT NOT NULL,
+          password TEXT DEFAULT NULL
         )
       `);
       db.run(`INSERT INTO courts (id, name) SELECT id, name FROM courts_old`);
       db.run(`DROP TABLE courts_old`);
       // Add pairs column if missing (for existing tables without it)
       db.run('ALTER TABLE courts ADD COLUMN IF NOT EXISTS pairs INTEGER DEFAULT 0');
+    } else {
+      // For existing tables without AUTOINCREMENT, check if password column exists
+      const hasPassword = rows.some(r => r.name === "password");
+      if (!hasPassword) {
+        db.run('ALTER TABLE courts ADD COLUMN password TEXT DEFAULT NULL');
+      }
+      // Add pairs column if missing (for existing tables without it)
+      const hasPairs = rows.some(r => r.name === "pairs");
+      if (!hasPairs) {
+        db.run('ALTER TABLE courts ADD COLUMN pairs INTEGER DEFAULT 0');
+      }
     }
   });
 
