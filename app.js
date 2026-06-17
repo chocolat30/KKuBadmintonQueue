@@ -40,6 +40,29 @@ app.use("/", historyRoutes);
 app.use("/court", queueRoutes);
 app.use("/court", matchRoutes);
 
+// Explicit court routes (avoid /court prefix matching issues on serverless)
+app.post("/courts/add", async (req, res) => {
+  const name = (req.body.name || '').trim() || 'Court';
+  const password = (req.body.password || '').trim();
+  if (password && password.length > 10) return res.redirect('/');
+  try {
+    await courtService.addCourt(name, password);
+    res.redirect('/');
+  } catch (err) {
+    res.redirect('/');
+  }
+});
+
+app.post("/court/:cid/delete", async (req, res) => {
+  const cid = Number(req.params.cid);
+  try {
+    await courtService.deleteCourt(cid);
+    res.redirect('/?msg=court_deleted');
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
