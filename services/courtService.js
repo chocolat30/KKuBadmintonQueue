@@ -17,11 +17,13 @@ const courtService = {
           [court_id],
           (e2, match) => {
             if (e2) return reject(e2);
-            io.emit(`court:${court_id}`, {
-              queue: queue || [],
-              match: match || null,
-              avgDuration: avgDuration || (10 * 60 * 1000),
-            });
+            if (io) {
+              io.emit(`court:${court_id}`, {
+                queue: queue || [],
+                match: match || null,
+                avgDuration: avgDuration || (10 * 60 * 1000),
+              });
+            }
             resolve();
           }
         );

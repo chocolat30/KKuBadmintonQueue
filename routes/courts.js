@@ -190,4 +190,33 @@ router.get('/:cid/clear-queue', async (req, res) => {
   }
 });
 
+/// API: Get court state (queue + match) – for polling fallback
+router.get('/:cid/state', async (req, res) => {
+  const cid = Number(req.params.cid);
+  if (!Number.isInteger(cid) || cid <= 0) {
+    return res.status(400).json({ error: 'Invalid court id' });
+  }
+  try {
+    const { queue, match } = await courtService.getCourtDetails(cid);
+    res.json({ queue: queue || [], match: match || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/// Remove a player from queue – REST fallback for socket.io
+router.post('/:cid/remove/:id', async (req, res) => {
+  const cid = Number(req.params.cid);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(cid) || cid <= 0 || !Number.isInteger(id) || id <= 0) {
+    return res.status(400).send('Invalid identifiers');
+  }
+  try {
+    await courtService.removePlayerFromQueue(cid, id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

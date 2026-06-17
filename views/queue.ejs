@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
   <style>
     body {
@@ -227,13 +226,13 @@
     <div id="actionButtonsContainer" class="d-flex flex-wrap gap-3 mb-4 action-stack">
 
       <button class="btn btn-success action-btn"
-        onclick="socket.emit('start-match', parseInt(courtId))"
+        onclick="startMatch()"
         data-i18n="start-match-btn">
         เริ่มแมตช์
       </button>
 
       <button class="btn btn-warning action-btn"
-        onclick="socket.emit('reset-match', parseInt(courtId))"
+        onclick="resetMatch()"
         data-i18n="reset-match-btn">
         รีเซ็ตแมตช์
       </button>
@@ -301,10 +300,10 @@
 
   <script>
     const courtId = "<%= court.id %>";
-    const socket = io();
     let draggedItem = null;
     let matchTimerInterval = null;
     let matchStartTimestamp = null;
+    let pollInterval = null;
 
     function formatDuration(ms) {
       if (!ms || ms < 0) ms = 0;
@@ -349,13 +348,24 @@
       }
     });
 
-    socket.emit('join-court', courtId);
+    // Polling-based state updates (replaces socket.io for Vercel/serverless compatibility)
+    async function pollCourtState() {
+      try {
+        const res = await fetch(`/court/${courtId}/state`);
+        if (!res.ok) return;
+        const data = await res.json();
+        updateMatchDisplay(data.match);
+        updateQueueDisplay(data.queue);
+        updateLiveIndicator();
+      } catch (err) {
+        console.error('Poll error:', err);
+        document.getElementById('liveIndicator').style.background = '#ef4444';
+      }
+    }
 
-    socket.on(`court:${courtId}`, (data) => {
-      updateMatchDisplay(data.match);
-      updateQueueDisplay(data.queue);
-      updateLiveIndicator();
-    });
+    // Start polling every 2 seconds
+    pollInterval = setInterval(pollCourtState, 2000);
+    pollCourtState(); // initial fetch
 
     document.getElementById('joinForm').addEventListener('submit', function(e) {
       e.preventDefault();
@@ -363,12 +373,14 @@
       const name = document.getElementById('playerNameInput').value.trim();
       if (!name) return;
 
-      socket.emit('join-queue', {
-        courtId: parseInt(courtId),
-        name
+      fetch(`/court/${courtId}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `name=${encodeURIComponent(name)}`
+      }).then(() => {
+        document.getElementById('playerNameInput').value = '';
+        pollCourtState();
       });
-
-      document.getElementById('playerNameInput').value = '';
     });
 
     function updateMatchDisplay(match) {
@@ -403,14 +415,14 @@
 
               <div class="score-row">
                 <button class="btn btn-outline-success score-btn"
-                  onclick="socket.emit('${match.matchesPlayedA === 0 ? 'add-match' : 'minus-match'}', { courtId: parseInt(courtId), side: 'A' })">
+                  onclick="updateScore('A', ${match.matchesPlayedA === 0 ? 1 : -1})">
                   ${match.matchesPlayedA === 0 ? '+1' : '-1'}
                 </button>
 
               </div>
 
               <button class="btn btn-success w-100 action-btn"
-                onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'A' })"
+                onclick="endMatch('A')"
                 data-i18n="win-a-btn">
                 ทีม A ชนะ
               </button>
@@ -432,14 +444,13 @@
 
               <div class="score-row">
                 <button class="btn btn-outline-danger score-btn"
-                  onclick="socket.emit('${match.matchesPlayedB === 0 ? 'add-match' : 'minus-match'}', { courtId: parseInt(courtId), side: 'B' })">
+                  onclick="updateScore('B', ${match.matchesPlayedB === 0 ? 1 : -1})">
                   ${match.matchesPlayedB === 0 ? '+1' : '-1'}
                 </button>
-
               </div>
 
               <button class="btn btn-danger w-100 action-btn"
-                onclick="socket.emit('end-match', { courtId: parseInt(courtId), winner: 'B' })"
+                onclick="endMatch('B')"
                 data-i18n="win-b-btn">
                 ทีม B ชนะ
               </button>
@@ -662,18 +673,34 @@
       const form = e.target;
       const name = form.querySelector('input[name="name"]').value.trim();
 
-      socket.emit('rename-queue', {
-        courtId: parseInt(courtId),
-        queueId: parseInt(queueId),
-        name
-      });
+      fetch(`/court/${courtId}/rename/${queueId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `name=${encodeURIComponent(name)}`
+      }).then(() => pollCourtState());
     }
 
     function removeQueue(queueId) {
-      socket.emit('remove-queue', {
-        courtId: parseInt(courtId),
-        queueId: parseInt(queueId)
-      });
+      fetch(`/court/${courtId}/remove/${queueId}`, {
+        method: 'POST'
+      }).then(() => pollCourtState());
+    }
+
+    function startMatch() {
+      fetch(`/court/${courtId}/start`).then(() => pollCourtState());
+    }
+
+    function resetMatch() {
+      fetch(`/court/${courtId}/reset-match`).then(() => pollCourtState());
+    }
+
+    function updateScore(side, delta) {
+      const endpoint = delta > 0 ? 'add-match' : 'minus-match';
+      fetch(`/court/${courtId}/${endpoint}/${side}`).then(() => pollCourtState());
+    }
+
+    function endMatch(winner) {
+      fetch(`/court/${courtId}/end?w=${winner}`).then(() => pollCourtState());
     }
 
     function escapeHtml(text) {
@@ -685,15 +712,6 @@
     function updateLiveIndicator() {
       document.getElementById('liveIndicator').style.background = '#22c55e';
     }
-
-    socket.on('disconnect', () => {
-      document.getElementById('liveIndicator').style.background = '#ef4444';
-    });
-
-    socket.on('connect', () => {
-      document.getElementById('liveIndicator').style.background = '#22c55e';
-      socket.emit('join-court', courtId);
-    });
   </script>
 
   <script src="/js/i18n.js?v=<%= APP_VERSION %>"></script>
