@@ -1,6 +1,24 @@
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
-const dbPath = path.join(__dirname, "queue.db");
+const fs = require("fs");
+
+// Vercel serverless: only /tmp is writable
+const isVercel = process.env.VERCEL === "1";
+const dbDir = isVercel ? "/tmp" : __dirname;
+const dbPath = path.join(dbDir, "queue.db");
+
+// On Vercel, copy a seed DB from the bundle if /tmp/queue.db doesn't exist yet
+if (isVercel && !fs.existsSync(dbPath)) {
+  try {
+    const seedPath = path.join(__dirname, "queue.db");
+    if (fs.existsSync(seedPath)) {
+      fs.copyFileSync(seedPath, dbPath);
+    }
+  } catch (e) {
+    // ignore — will be created fresh below
+  }
+}
+
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Failed to connect to SQLite database:', err.message);
