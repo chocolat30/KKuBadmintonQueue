@@ -57,6 +57,8 @@ router.post('/court/:cid/open', async (req, res) => {
       if ((!supplied) || supplied !== court.password) {
         return res.status(403).send('Incorrect password');
       }
+      // Set a session cookie for this court using its UUID
+      res.cookie(`court_auth_${court.uuid}`, 'true', { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
     }
     // Password ok (or court is open) -> tell client to navigate
     return res.json({ ok: true, location: `/court/${cid}` });
@@ -80,12 +82,17 @@ router.get('/court/:cid/open', async (req, res) => {
     if (court.password) {
       // … and no password was supplied, show the entry form
       if (!supplied) {
-        return res.render('court-open-form', { cid });
+        return res.render('court-open-form', { 
+            cid,
+            APP_VERSION: require('../package.json').version 
+        });
       }
       // Password mismatch
       if (supplied !== court.password) {
         return res.status(403).send('Incorrect password');
       }
+      // Set a session cookie for this court
+      res.cookie(`court_auth_${court.uuid}`, 'true', { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
     }
     // Password ok (or court is open) → go to the court page
     return res.redirect(`/court/${cid}`);
@@ -102,6 +109,16 @@ router.get('/:cid', async (req, res) => {
   }
   try {
     const { court, queue, match } = await courtService.getCourtDetails(cid);
+    if (!court) return res.redirect('/');
+
+    console.log(`[DEBUG] Accessing court ${cid} via courts.js. Password: ${court.password ? 'YES' : 'NO'}, Cookie: ${req.cookies ? JSON.stringify(req.cookies) : 'UNDEFINED'}`);
+
+    // Password protection check
+    if (court.password && !req.cookies[`court_auth_${court.uuid}`]) {
+      console.log(`[DEBUG] Redirecting court ${cid} via courts.js to open form`);
+      return res.redirect(`/court/${cid}/open`);
+    }
+
     res.render('queue', { court, queue, match });
   } catch (err) {
     if (err.message === 'Court not found') return res.redirect('/');

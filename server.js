@@ -1,5 +1,6 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
 const http = require("http");
 const { Server } = require("socket.io");
 require("dotenv").config().parsed || {};
@@ -28,6 +29,7 @@ courtService.init(io);
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(cookieParser());
 app.use(express.static("public", {
   setHeaders: (res, path) => {
     if (path.endsWith("i18n.js")) {

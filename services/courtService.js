@@ -1,5 +1,6 @@
 const db = require("../db");
 const { getQueueWithEstimates } = require("../helpers/queueEstimation");
+const { v4: uuidv4 } = require("uuid");
 
 let io;
 
@@ -143,22 +144,12 @@ const courtService = {
 
   async addCourt(name, password) {
     return new Promise((resolve, reject) => {
-      db.all("SELECT id FROM courts ORDER BY id ASC", (err, rows) => {
-        if (err) return reject(err);
-        let newId = 1;
-        for (let i = 0; i < rows.length; i++) {
-          if (rows[i].id !== i + 1) {
-            newId = i + 1;
-            break;
-          }
-          newId = rows.length + 1;
-        }
-        db.run(
-          "INSERT INTO courts (id, name, password) VALUES (?, ?, ?)",
-          [newId, name, password || null],
-          (e) => (e ? reject(e) : resolve())
-        );
-      });
+      const courtUuid = uuidv4();
+      db.run(
+        "INSERT INTO courts (name, password, uuid) VALUES (?, ?, ?)",
+        [name, password || null, courtUuid],
+        (e) => (e ? reject(e) : resolve())
+      );
     });
   },
 

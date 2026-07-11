@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Enter Password</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background: #f3f4f6;
+            font-family: Inter, system-ui, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .password-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            position: relative;
+        }
+        .btn-green {
+            background: #16a34a;
+            border: none;
+            color: white;
+        }
+        .btn-green:hover {
+            background: #15803d;
+            color: white;
+        }
+        .btn-soft {
+            border-radius: 14px;
+            padding: 12px 24px;
+            font-weight: 600;
+        }
+        .lang-switch {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="password-card">
+        <div class="lang-switch">
+            <select id="langSelect" class="form-select form-select-sm w-auto"
+                onchange="setLanguage(this.value)">
+                <option value="th">TH</option>
+                <option value="en">EN</option>
+            </select>
+        </div>
+
+        <div class="mb-4">
+            <div class="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                <i class="bi bi-lock-fill" style="font-size: 24px;"></i>
+            </div>
+            <h4 class="fw-bold" data-i18n="password-modal-title">กรุณากรอกรหัสผ่าน</h4>
+            <p class="text-muted" data-i18n="password-modal-placeholder">คอร์ทนี้ถูกล็อกไว้ โปรดใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+        </div>
+
+        <form action="/court/<%= cid %>/open" method="GET">
+            <div class="mb-4 text-start">
+                <label class="form-label fw-semibold" data-i18n="password-modal-placeholder">รหัสผ่าน</label>
+                <input type="password" name="password" class="form-control form-control-lg" 
+                       maxlength="10" autofocus required
+                       placeholder="<%= APP_VERSION %>" data-i18n="password-modal-placeholder">
+                <!-- Note: I'll use a generic placeholder, the translation logic will handle it -->
+            </div>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-green btn-lg btn-soft">
+                    <i class="bi bi-unlock"></i> <span data-i18n="password-modal-btn">เข้าสู่คอร์ท</span>
+                </button>
+                <a href="/" class="btn btn-light border btn-lg btn-soft text-decoration-none" data-i18n="back-btn">
+                    ย้อนกลับ
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <script src="/js/i18n.js?v=<%= APP_VERSION %>"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const langSelect = document.getElementById('langSelect');
+            // Sync dropdown with current language
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) {
+                langSelect.value = localStorage.getItem('lang');
+            }
+            // Correct the placeholder specifically since it's handled differently in i18n.js
+            const passwordInput = document.querySelector('input[name="password"]');
+            if (passwordInput) {
+                passwordInput.placeholder = t('password-modal-placeholder');
+            }
+        });
+    </script>
+</body>
+</html>

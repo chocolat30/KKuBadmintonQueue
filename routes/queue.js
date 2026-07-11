@@ -25,6 +25,16 @@ router.get('/:cid', async (req, res) => {
   }
   try {
     const { court, queue, match } = await courtService.getCourtDetails(cid);
+    if (!court) return res.redirect('/');
+
+    console.log(`[DEBUG] Accessing court ${cid}. Password: ${court.password ? 'YES' : 'NO'}, Cookie: ${req.cookies ? JSON.stringify(req.cookies) : 'UNDEFINED'}`);
+
+    // Password protection check
+    if (court.password && !req.cookies[`court_auth_${court.uuid}`]) {
+      console.log(`[DEBUG] Redirecting court ${cid} to open form`);
+      return res.redirect(`/court/${cid}/open`);
+    }
+
     res.render('queue', {
       queue,
       match,
