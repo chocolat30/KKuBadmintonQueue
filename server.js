@@ -16,7 +16,16 @@ const { registerCourtHandlers } = require("./sockets/courtSockets");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: [`http://localhost:${port}`, `http://127.0.0.1:${port}`] }
+  cors: { origin: [`http://localhost:${port}`, `http://127.0.0.1:${port}`] },
+  // Tolerate flaky WiFi: longer ping interval + timeout
+  pingInterval: 30000,    // default 25000 → 30s
+  pingTimeout: 60000,     // default 20000 → 60s
+  // Fallback to polling if websocket drops (auto-reconnect built-in)
+  transports: ['websocket', 'polling'],
+  // Allow larger buffer for edge cases
+  maxHttpBufferSize: 1e6,
+  // Reconnection settings for clients
+  connectTimeout: 60000,
 });
 
 // Cache-buster version from package.json
@@ -44,8 +53,9 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use("/", courtRoutes);
 app.use("/", historyRoutes);
+app.use("/", courtRoutes);
+app.use("/court", historyRoutes);
 app.use("/court", queueRoutes);
 app.use("/court", matchRoutes);
 
