@@ -301,7 +301,13 @@
 
   <script>
     const courtId = "<%= court.id %>";
-    const socket = io();
+    const socket = io({
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      timeout: 60000
+    });
     let draggedItem = null;
     let matchTimerInterval = null;
     let matchStartTimestamp = null;
@@ -688,12 +694,38 @@
 
     socket.on('disconnect', () => {
       document.getElementById('liveIndicator').style.background = '#ef4444';
+      showOfflineBanner(true);
     });
 
     socket.on('connect', () => {
       document.getElementById('liveIndicator').style.background = '#22c55e';
+      showOfflineBanner(false);
       socket.emit('join-court', courtId);
     });
+
+    socket.on('reconnect_attempt', (n) => {
+      showOfflineBanner(true, `กำลังเชื่อมต่อใหม่... (ครั้งที่ ${n})`);
+    });
+
+    socket.on('reconnect_failed', () => {
+      showOfflineBanner(true, 'เชื่อมต่อไม่สำเร็จ กรุณา refresh หน้าเว็บ');
+    });
+
+    function showOfflineBanner(show, msg) {
+      let banner = document.getElementById('offlineBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'offlineBanner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ef4444;color:#fff;text-align:center;padding:8px;font-weight:600;z-index:9999;display:none;';
+        document.body.prepend(banner);
+      }
+      if (show) {
+        banner.style.display = 'block';
+        banner.textContent = msg || 'อินเทอร์เน็ตขาด กำลังเชื่อมต่อใหม่... ข้อมูลอาจล้าสมัย';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
   </script>
 
   <script src="/js/i18n.js?v=<%= APP_VERSION %>"></script>
