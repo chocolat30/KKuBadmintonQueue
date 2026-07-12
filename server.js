@@ -46,8 +46,8 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use("/", courtRoutes);
 app.use("/", historyRoutes);
+app.use("/", courtRoutes);
 app.use("/court", queueRoutes);
 app.use("/court", matchRoutes);
 

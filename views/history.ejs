@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ประวัติแมตช์</title>
@@ -72,8 +71,7 @@
         <a href="<%= court ? '/court/' + court.id : '/' %>" class="btn btn-light border rounded-4">
           <i class="bi bi-arrow-left"></i>
         </a>
-
-    <h3 class="mb-0 fw-bold" data-i18n="history-title" data-i18n-value="${court ? court.name : 'ทั้งหมด'}">
+        <h3 class="mb-0 fw-bold" data-i18n="history-title">
           ประวัติแมตช์<%= court ? (' - ' + court.name) : '' %>
         </h3>
       </div>
@@ -131,18 +129,18 @@
 
           <div class="col-md-5">
             <div class="team-box <%= h.winner === h.teamA ? 'winner' : 'loser' %>">
-              <div class="fw-semibold text-secondary">ทีม A <%= h.winner === h.teamA ? '🏆' : '' %></div>
+              <div class="fw-semibold text-secondary" data-i18n="team-a">ทีม A <%= h.winner === h.teamA ? '🏆' : '' %></div>
               <div class="fs-4 fw-bold"><%= h.teamA %></div>
             </div>
           </div>
 
           <div class="col-md-2 text-center fw-bold text-secondary">
-            VS
+            <span data-i18n="vs">VS</span>
           </div>
 
           <div class="col-md-5">
             <div class="team-box <%= h.winner === h.teamB ? 'winner' : 'loser' %>">
-              <div class="fw-semibold text-secondary">ทีม B <%= h.winner === h.teamB ? '🏆' : '' %></div>
+              <div class="fw-semibold text-secondary" data-i18n="team-b">ทีม B <%= h.winner === h.teamB ? '🏆' : '' %></div>
               <div class="fs-4 fw-bold"><%= h.teamB %></div>
             </div>
           </div>
@@ -150,7 +148,7 @@
 
         <div class="text-center">
           <div class="winner-badge">
-            ผู้ชนะ: <%= h.winner %>
+            <span data-i18n="winning-team">ผู้ชนะ</span>: <%= h.winner %>
           </div>
         </div>
       </div>
@@ -158,6 +156,13 @@
   </div>
 
   <script src="/js/i18n.js?v=<%= APP_VERSION %>"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const langSelect = document.getElementById('langSelect');
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) {
+        langSelect.value = localStorage.getItem('lang');
+      }
+    });
+  </script>
 </body>
-
 </html>
