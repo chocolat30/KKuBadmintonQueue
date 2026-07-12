@@ -20,12 +20,19 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       pairs INTEGER DEFAULT 0,
-      password TEXT DEFAULT NULL
+      password TEXT DEFAULT NULL,
+      uuid TEXT
     )
   `);
 
   // Ensure AUTOINCREMENT is removed (for existing DBs)
   db.all("PRAGMA table_info(courts)", (err, rows) => {
+    if (!rows) return;
+    const cols = rows.map(r => r.name);
+    if (!cols.includes("uuid")) {
+      db.run('ALTER TABLE courts ADD COLUMN uuid TEXT');
+    }
+
     const hasAuto = rows.some(r => r.pk === 1 && r.type.includes("AUTOINCREMENT"));
     if (hasAuto) {
       // rebuild table without AUTOINCREMENT
