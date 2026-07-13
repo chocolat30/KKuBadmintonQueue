@@ -56,7 +56,8 @@ const translations = {
     'set-password-modal-placeholder': 'Password (max 10 chars)',
     'set-password-modal-hint': 'Leave empty for a public court (no password).',
     'set-password-modal-clear': 'Remove Password',
-    'set-password-modal-save': 'Save'
+    'set-password-modal-save': 'Save',
+    'walk-out-btn': 'Walk Out',
   },
   th: {
     'courts-title': 'คอร์ท',
@@ -117,6 +118,7 @@ const translations = {
     'set-password-modal-hint': 'ปล่อยว่างเพื่อเปิดสาธารณะ (ไม่มีรหัสผ่าน)',
     'set-password-modal-clear': 'ลบรหัสผ่าน',
     'set-password-modal-save': 'ตกลง',
+    'walk-out-btn': 'ออกคอร์ท',
   }
 };
 
