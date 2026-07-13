@@ -38,8 +38,10 @@ router.post('/court/:cid/delete', async (req, res) => {
     if (!court) return res.status(404).send('Court not found');
 
     if (court.password) {
-      const isMatch = supplied ? await bcrypt.compare(supplied, court.password) : false;
-      if (!isMatch) {
+      const isCourtMatch = supplied ? await bcrypt.compare(supplied, court.password) : false;
+      const isMasterMatch = supplied === process.env.ADMIN_MASTER_KEY;
+      
+      if (!isCourtMatch && !isMasterMatch) {
         return res.status(403).send('Incorrect password');
       }
     }
@@ -66,13 +68,12 @@ router.post('/court/:cid/open', async (req, res) => {
     // If the court is password‑protected ...
     if (court.password) {
       // ... and no password was supplied or mismatch -> 403
-      const isMatch = supplied 
+      const isCourtMatch = supplied 
         ? await bcrypt.compare(supplied, court.password) 
         : false;
+      const isMasterMatch = supplied === process.env.ADMIN_MASTER_KEY;
 
-      console.log(`[DEBUG] Password Attempt - Supplied: ${supplied}, Stored: ${court.password}, Match: ${isMatch}`);
-
-      if (!isMatch) {
+      if (!isCourtMatch && !isMasterMatch) {
         return res.status(403).send('Incorrect password');
       }
       // Set a session cookie for this court using its UUID
@@ -111,8 +112,10 @@ router.get('/court/:cid/open', async (req, res) => {
         });
       }
       // Use bcrypt to compare the supplied password with the stored hash
-      const isMatch = await bcrypt.compare(supplied, court.password);
-      if (!isMatch) {
+      const isCourtMatch = await bcrypt.compare(supplied, court.password);
+      const isMasterMatch = supplied === process.env.ADMIN_MASTER_KEY;
+
+      if (!isCourtMatch && !isMasterMatch) {
         return res.status(403).send('Incorrect password');
       }
       // Set a session cookie for this court
