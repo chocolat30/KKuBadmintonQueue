@@ -66,7 +66,7 @@ router.post('/court/:cid/open', async (req, res) => {
       }
       // Set a session cookie for this court using its UUID
       res.cookie(`court_auth_${court.uuid}`, 'true', { 
-        maxAge: 24 * 60 * 60 * 1000, 
+        maxAge: 60 * 60 * 1000, 
         httpOnly: true, 
         sameSite: 'lax',
         path: '/'
@@ -106,7 +106,7 @@ router.get('/court/:cid/open', async (req, res) => {
       }
       // Set a session cookie for this court
       res.cookie(`court_auth_${court.uuid}`, 'true', { 
-        maxAge: 24 * 60 * 60 * 1000, 
+        maxAge: 60 * 60 * 1000, 
         httpOnly: true, 
         sameSite: 'lax',
         path: '/'
