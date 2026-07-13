@@ -32,7 +32,18 @@ router.post('/courts/add', async (req, res) => {
 /// Delete a court
 router.post('/court/:cid/delete', async (req, res) => {
   const cid = Number(req.params.cid);
+  const supplied = ((req.body && req.body.password) || '').trim();
   try {
+    const court = await courtService.getCourtById(cid);
+    if (!court) return res.status(404).send('Court not found');
+
+    if (court.password) {
+      const isMatch = supplied ? await bcrypt.compare(supplied, court.password) : false;
+      if (!isMatch) {
+        return res.status(403).send('Incorrect password');
+      }
+    }
+
     await courtService.deleteCourt(cid);
     res.redirect('/?msg=court_deleted');
   } catch (err) {
