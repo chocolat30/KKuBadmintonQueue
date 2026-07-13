@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const courtService = require('../services/courtService');
+const bcrypt = require('bcryptjs');
 
 /// Home page – list of courts
 router.get('/', async (req, res) => {
@@ -54,11 +55,22 @@ router.post('/court/:cid/open', async (req, res) => {
     // If the court is password‑protected ...
     if (court.password) {
       // ... and no password was supplied or mismatch -> 403
-      if ((!supplied) || supplied !== court.password) {
+      const isMatch = supplied 
+        ? await bcrypt.compare(supplied, court.password) 
+        : false;
+
+      console.log(`[DEBUG] Password Attempt - Supplied: ${supplied}, Stored: ${court.password}, Match: ${isMatch}`);
+
+      if (!isMatch) {
         return res.status(403).send('Incorrect password');
       }
       // Set a session cookie for this court using its UUID
-      res.cookie(`court_auth_${court.uuid}`, 'true', { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
+      res.cookie(`court_auth_${court.uuid}`, 'true', { 
+        maxAge: 24 * 60 * 60 * 1000, 
+        httpOnly: true, 
+        sameSite: 'lax',
+        path: '/'
+      });
     }
     // Password ok (or court is open) -> tell client to navigate
     return res.json({ ok: true, location: `/court/${cid}` });
@@ -87,12 +99,18 @@ router.get('/court/:cid/open', async (req, res) => {
             APP_VERSION: require('../package.json').version 
         });
       }
-      // Password mismatch
-      if (supplied !== court.password) {
+      // Use bcrypt to compare the supplied password with the stored hash
+      const isMatch = await bcrypt.compare(supplied, court.password);
+      if (!isMatch) {
         return res.status(403).send('Incorrect password');
       }
       // Set a session cookie for this court
-      res.cookie(`court_auth_${court.uuid}`, 'true', { maxAge: 24 * 60 * 60 * 1000, httpOnly: true });
+      res.cookie(`court_auth_${court.uuid}`, 'true', { 
+        maxAge: 24 * 60 * 60 * 1000, 
+        httpOnly: true, 
+        sameSite: 'lax',
+        path: '/'
+      });
     }
     // Password ok (or court is open) → go to the court page
     return res.redirect(`/court/${cid}`);
@@ -111,7 +129,7 @@ router.get('/:cid', async (req, res) => {
     const { court, queue, match } = await courtService.getCourtDetails(cid);
     if (!court) return res.redirect('/');
 
-    console.log(`[DEBUG] Accessing court ${cid} via courts.js. Password: ${court.password ? 'YES' : 'NO'}, Cookie: ${req.cookies ? JSON.stringify(req.cookies) : 'UNDEFINED'}`);
+    console.log(`[DEBUG] Accessing court ${cid} via courts.js. Password: ${court.password ? 'YES' : 'NO'}, SignedCookies: ${req.signedCookies ? JSON.stringify(req.signedCookies) : 'UNDEFINED'}`);
 
     // Password protection check
     if (court.password && !req.cookies[`court_auth_${court.uuid}`]) {
@@ -174,7 +192,7 @@ router.post('/:cid/rename/:id', async (req, res) => {
     await courtService.renamePlayer(cid, id, newName);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ err: err.message });
   }
 });
 

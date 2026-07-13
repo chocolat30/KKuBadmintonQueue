@@ -1,6 +1,7 @@
 const db = require("../db");
 const { getQueueWithEstimates } = require("../helpers/queueEstimation");
 const { v4: uuidv4 } = require("uuid");
+const bcrypt = require("bcryptjs");
 
 let io;
 
@@ -145,9 +146,14 @@ const courtService = {
   async addCourt(name, password) {
     return new Promise((resolve, reject) => {
       const courtUuid = uuidv4();
+      let hashedPw = password || null;
+      if (password) {
+        const salt = bcrypt.genSaltSync(10);
+        hashedPw = bcrypt.hashSync(password, salt);
+      }
       db.run(
         "INSERT INTO courts (name, password, uuid) VALUES (?, ?, ?)",
-        [name, password || null, courtUuid],
+        [name, hashedPw, courtUuid],
         (e) => (e ? reject(e) : resolve())
       );
     });

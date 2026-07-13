@@ -38,7 +38,7 @@ courtService.init(io);
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(cookieParser());
+app.use(cookieParser(process.env.COOKIE_SECRET || 'default_secret_change_me'));
 app.use(express.static("public", {
   setHeaders: (res, path) => {
     if (path.endsWith("i18n.js")) {
