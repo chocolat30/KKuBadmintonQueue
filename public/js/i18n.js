@@ -58,6 +58,7 @@ const translations = {
     'set-password-modal-clear': 'Remove Password',
     'set-password-modal-save': 'Save',
     'walk-out-btn': 'Walk Out',
+    'confirm-walk-out': 'Are you sure you want this pair to walk out?',
   },
   th: {
     'courts-title': 'คอร์ท',
@@ -119,6 +120,7 @@ const translations = {
     'set-password-modal-clear': 'ลบรหัสผ่าน',
     'set-password-modal-save': 'ตกลง',
     'walk-out-btn': 'ออกคอร์ท',
+    'confirm-walk-out': 'ยืนยันให้คู่นี้เดินออกใช่หรือไม่?',
   }
 };
 
