@@ -401,7 +401,7 @@
           <div class="col-lg-5">
             <div class="team-panel team-green position-relative">
               <button class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2"
-                onclick="socket.emit('walk-out', { courtId: parseInt(courtId), side: 'A' })"
+                onclick="if(confirm(t('confirm-walk-out'))) socket.emit('walk-out', { courtId: parseInt(courtId), side: 'A' })"
                 data-i18n="walk-out-btn">
                 Walk Out
               </button>
@@ -435,7 +435,7 @@
           <div class="col-lg-5">
             <div class="team-panel team-red position-relative">
               <button class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2"
-                onclick="socket.emit('walk-out', { courtId: parseInt(courtId), side: 'B' })"
+                onclick="if(confirm(t('confirm-walk-out'))) socket.emit('walk-out', { courtId: parseInt(courtId), side: 'B' })"
                 data-i18n="walk-out-btn">
                 Walk Out
               </button>
