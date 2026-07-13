@@ -59,6 +59,9 @@ const translations = {
     'set-password-modal-save': 'Save',
     'walk-out-btn': 'Walk Out',
     'confirm-walk-out': 'Are you sure you want this pair to walk out?',
+    'qr-modal-title': 'Scan to Join Queue',
+    'qr-modal-text': 'Scan this QR code to join the queue for {n}',
+    'qr-modal-close': 'Close',
   },
   th: {
     'courts-title': 'คอร์ท',
@@ -121,6 +124,9 @@ const translations = {
     'set-password-modal-save': 'ตกลง',
     'walk-out-btn': 'ออกคอร์ท',
     'confirm-walk-out': 'ยืนยันให้คู่นี้เดินออกใช่หรือไม่?',
+    'qr-modal-title': 'สแกนเพื่อต่อคิว',
+    'qr-modal-text': 'สแกน QR Code นี้เพื่อต่อคิวของ {n}',
+    'qr-modal-close': 'ปิด',
   }
 };
 
