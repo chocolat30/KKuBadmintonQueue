@@ -167,22 +167,6 @@
         justify-content: end;
       }
     }
-
-    /* QR Modal Styles */
-    #qrModal .modal-content {
-      border-radius: 22px;
-      border: none;
-      text-align: center;
-      padding: 20px;
-    }
-    #qrCanvasContainer {
-      display: flex;
-      justify-content: center;
-      margin: 20px 0;
-      background: white;
-      padding: 20px;
-      border-radius: 16px;
-    }
   </style>
 </head>
 
@@ -206,7 +190,8 @@
       </div>
 
       <div class="d-flex gap-2 align-items-center top-actions">
-        <button id="showQRBtn" class="btn btn-light border rounded-4" type="button">QR Code</button>
+        <div id="courtQR" class="d-none"></div>
+            <button id="showQRBtn" class="btn btn-light border rounded-4" type="button">QR Code</button>
 
         <a href="/court/<%= court.id %>/history" class="btn btn-light border rounded-4">
           <i class="bi bi-clock-history"></i>
@@ -311,31 +296,9 @@
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- QR Code Modal -->
-  <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header border-0">
-          <h5 class="modal-title fw-bold w-100 text-center" data-i18n="qr-modal-title">Scan to Join Queue</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div id="qrCanvasContainer">
-            <div id="courtQR"></div>
-          </div>
-          <p class="text-muted text-center" data-i18n="qr-modal-text" data-i18n-value="<%= court.name %>">Scan this QR code to join the queue for <%= court.name %></p>
-        </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-light border w-100 rounded-4" data-bs-dismiss="modal" data-i18n="qr-modal-close">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/js/i18n.js?v=<%= APP_VERSION %>"></script>
   <script>
     const courtId = "<%= court.id %>";
     const socket = io({
@@ -377,14 +340,19 @@
     const url = `${location.origin}/court/${courtId}`;
     new QRCode(document.getElementById('courtQR'), {
       text: url,
-      width: 256,
-      height: 256
+      width: 72,
+      height: 72
     });
-
-    // Toggle QR code visibility using Modal
+    // Toggle QR code visibility when button clicked
     document.getElementById('showQRBtn').addEventListener('click', function() {
-      const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
-      qrModal.show();
+      const qr = document.getElementById('courtQR');
+      if (qr.classList.contains('d-none')) {
+        qr.classList.remove('d-none');
+        this.textContent = 'Hide QR';
+      } else {
+        qr.classList.add('d-none');
+        this.textContent = 'QR Code';
+      }
     });
 
     socket.emit('join-court', courtId);
@@ -437,7 +405,7 @@
                 data-i18n="walk-out-btn">
                 Walk Out
               </button>
-              <div class="fw-semibold text-success" data-i18n="team-a">${t('team-a') || 'ทีม A'}</div>
+              <div class="fw-semibold text-success">${t('team-a') || 'ทีม A'}</div>
               <div class="fs-2 fw-bold">${escapeHtml(match.teamA)}</div>
 
               <div class="text-secondary mt-2" data-i18n="played-rounds" data-i18n-value="${match.matchesPlayedA}">
@@ -471,7 +439,7 @@
                 data-i18n="walk-out-btn">
                 Walk Out
               </button>
-              <div class="fw-semibold text-danger" data-i18n="team-b">${t('team-b') || 'ทีม B'}</div>
+              <div class="fw-semibold text-danger">${t('team-b') || 'ทีม B'}</div>
               <div class="fs-2 fw-bold">${escapeHtml(match.teamB)}</div>
 
               <div class="text-secondary mt-2" data-i18n="played-rounds" data-i18n-value="${match.matchesPlayedB}">
@@ -530,60 +498,198 @@
 
                   <div class="d-flex gap-2">
                     <input name="name"
-                      id="input-name-${q.id}"
-                      class="form-control form-control-sm"
                       value="${escapeHtml(q.name)}"
+                      class="form-control form-control-sm"
                       required>
-                    <button type="submit" class="btn btn-success btn-sm">Save</button>
-                    <button type="button" class="btn btn-light border btn-sm" 
-                      onclick="toggleEdit('${q.id}', false)">Cancel</button>
+
+                    <button class="btn btn-sm btn-success">
+                      OK
+                    </button>
                   </div>
                 </form>
               </div>
             </div>
 
-            <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-light border" onclick="toggleEdit('${q.id}', true)">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+
+              <span class="pill" data-i18n="estimated-min" data-i18n-value="${q.estimatedStartMinutes || 0}">
+                ~${q.estimatedStartMinutes || 0} นาที
+              </span>
+
+              <button id="edit-btn-${q.id}"
+                class="btn btn-sm btn-light border"
+                onclick="enableEdit('${q.id}')">
                 <i class="bi bi-pencil"></i>
               </button>
-              <button class="btn btn-sm btn-outline-danger" 
-                onclick="socket.emit('remove-pair', { courtId: parseInt(courtId), pairId: ${q.id} })">
-                <i class="bi bi-trash"></i>
+
+              <button class="btn btn-sm btn-light border text-danger"
+                onclick="removeQueue(${q.id})">
+                <i class="bi bi-x-lg"></i>
               </button>
             </div>
           </div>
         </div>
       `).join('');
+
+      setupDragAndDrop();
     }
 
-    function toggleEdit(id, show) {
-      const form = document.getElementById(`edit-form-${id}`);
-      const text = document.getElementById(`name-text-${id}`);
-      if (show) {
-        form.classList.remove('d-none');
-        text.classList.add('d-none');
-        form.querySelector('input').focus();
-      } else {
-        form.classList.add('d-none');
-        text.classList.remove('d-none');
-      }
-    }
+    function setupDragAndDrop() {
+  const items = document.querySelectorAll('.queue-item');
 
-    function handleRenameSubmit(e, id) {
+  items.forEach(item => {
+    const handle = item.querySelector('.drag-handle');
+
+    // Desktop drag events
+    handle.addEventListener('dragstart', () => {
+      draggedItem = item;
+      item.classList.add('dragging');
+    });
+    handle.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      items.forEach(i => i.classList.remove('drag-over'));
+      sendQueueOrder();
+    });
+    item.addEventListener('dragover', e => {
       e.preventDefault();
-      const newName = e.target.name.value.trim();
-      if (!newName) return;
-      socket.emit('rename-pair', {
-        courtId: parseInt(courtId),
-        pairId: parseInt(id),
-        newName
+      if (item !== draggedItem) item.classList.add('drag-over');
+    });
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      if (item !== draggedItem) {
+        const allItems = [...document.querySelectorAll('.queue-item')];
+        const draggedIndex = allItems.indexOf(draggedItem);
+        const targetIndex = allItems.indexOf(item);
+        if (draggedIndex < targetIndex) {
+          item.parentNode.insertBefore(draggedItem, item.nextSibling);
+        } else {
+          item.parentNode.insertBefore(draggedItem, item);
+        }
+      }
+      item.classList.remove('drag-over');
+    });
+
+    // Mobile touch events
+    let touchMoveHandler = null;
+    handle.addEventListener('touchstart', e => {
+      e.preventDefault();
+      draggedItem = item;
+      item.classList.add('dragging');
+    });
+    handle.addEventListener('touchend', e => {
+      e.preventDefault();
+      item.classList.remove('dragging');
+      items.forEach(i => i.classList.remove('drag-over'));
+      sendQueueOrder();
+    });
+    handle.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetItem = targetElem && targetElem.closest('.queue-item');
+      if (targetItem && targetItem !== draggedItem) {
+        const allItems = [...document.querySelectorAll('.queue-item')];
+        const draggedIndex = allItems.indexOf(draggedItem);
+        const targetIndex = allItems.indexOf(targetItem);
+        if (draggedIndex < targetIndex) {
+          targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
+        } else {
+          targetItem.parentNode.insertBefore(draggedItem, targetItem);
+        }
+      }
+    });
+  });
+}
+      const items = document.querySelectorAll('.queue-item');
+
+      items.forEach(item => {
+        const handle = item.querySelector('.drag-handle');
+
+        handle.addEventListener('dragstart', () => {
+          draggedItem = item;
+          item.classList.add('dragging');
+        });
+
+        handle.addEventListener('dragend', () => {
+          item.classList.remove('dragging');
+          items.forEach(i => i.classList.remove('drag-over'));
+        });
+
+        item.addEventListener('dragover', e => {
+          e.preventDefault();
+          if (item !== draggedItem) item.classList.add('drag-over');
+        });
+
+        item.addEventListener('dragleave', () => {
+          item.classList.remove('drag-over');
+        });
+
+        item.addEventListener('drop', e => {
+          e.preventDefault();
+
+          if (item !== draggedItem) {
+            const allItems = [...document.querySelectorAll('.queue-item')];
+            const draggedIndex = allItems.indexOf(draggedItem);
+            const targetIndex = allItems.indexOf(item);
+
+            if (draggedIndex < targetIndex) {
+              item.parentNode.insertBefore(draggedItem, item.nextSibling);
+            } else {
+              item.parentNode.insertBefore(draggedItem, item);
+            }
+
+            sendQueueOrder();
+          }
+
+          item.classList.remove('drag-over');
+        });
       });
-      toggleEdit(id, false);
+
+
+    function sendQueueOrder() {
+      const items = document.querySelectorAll('.queue-item');
+
+      const newOrder = Array.from(items).map((item, index) => ({
+        id: parseInt(item.dataset.queueId),
+        position: index + 1
+      }));
+
+      fetch(`/court/${courtId}/reorder-queue`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ order: newOrder })
+      });
     }
 
-    function updateLiveIndicator() {
-      const indicator = document.getElementById('liveIndicator');
-      if (indicator) indicator.style.display = 'inline-block';
+    function enableEdit(id) {
+      document.getElementById(`name-text-${id}`).classList.add('d-none');
+      document.getElementById(`edit-btn-${id}`).classList.add('d-none');
+      document.getElementById(`edit-form-${id}`).classList.remove('d-none');
+    }
+
+    function handleRenameSubmit(e, queueId) {
+      e.preventDefault();
+
+      const form = e.target;
+      const name = form.querySelector('input[name="name"]').value.trim();
+
+      socket.emit('rename-queue', {
+        courtId: parseInt(courtId),
+        queueId: parseInt(queueId),
+        name
+      });
+    }
+
+    function removeQueue(queueId) {
+      socket.emit('remove-queue', {
+        courtId: parseInt(courtId),
+        queueId: parseInt(queueId)
+      });
     }
 
     function escapeHtml(text) {
@@ -592,10 +698,47 @@
       return div.innerHTML;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      applyTranslations();
+    function updateLiveIndicator() {
+      document.getElementById('liveIndicator').style.background = '#22c55e';
+    }
+
+    socket.on('disconnect', () => {
+      document.getElementById('liveIndicator').style.background = '#ef4444';
+      showOfflineBanner(true);
     });
+
+    socket.on('connect', () => {
+      document.getElementById('liveIndicator').style.background = '#22c55e';
+      showOfflineBanner(false);
+      socket.emit('join-court', courtId);
+    });
+
+    socket.on('reconnect_attempt', (n) => {
+      showOfflineBanner(true, `กำลังเชื่อมต่อใหม่... (ครั้งที่ ${n})`);
+    });
+
+    socket.on('reconnect_failed', () => {
+      showOfflineBanner(true, 'เชื่อมต่อไม่สำเร็จ กรุณา refresh หน้าเว็บ');
+    });
+
+    function showOfflineBanner(show, msg) {
+      let banner = document.getElementById('offlineBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'offlineBanner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ef4444;color:#fff;text-align:center;padding:8px;font-weight:600;z-index:9999;display:none;';
+        document.body.prepend(banner);
+      }
+      if (show) {
+        banner.style.display = 'block';
+        banner.textContent = msg || 'อินเทอร์เน็ตขาด กำลังเชื่อมต่อใหม่... ข้อมูลอาจล้าสมัย';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
   </script>
+
+  <script src="/js/i18n.js?v=<%= APP_VERSION %>"></script>
 </body>
 
 </html>
