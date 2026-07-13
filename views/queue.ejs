@@ -399,7 +399,12 @@
         <div class="row g-4 align-items-center">
 
           <div class="col-lg-5">
-            <div class="team-panel team-green">
+            <div class="team-panel team-green position-relative">
+              <button class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2"
+                onclick="socket.emit('walk-out', { courtId: parseInt(courtId), side: 'A' })"
+                data-i18n="walk-out-btn">
+                Walk Out
+              </button>
               <div class="fw-semibold text-success">${t('team-a') || 'ทีม A'}</div>
               <div class="fs-2 fw-bold">${escapeHtml(match.teamA)}</div>
 
@@ -428,7 +433,12 @@
           </div>
 
           <div class="col-lg-5">
-            <div class="team-panel team-red">
+            <div class="team-panel team-red position-relative">
+              <button class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2"
+                onclick="socket.emit('walk-out', { courtId: parseInt(courtId), side: 'B' })"
+                data-i18n="walk-out-btn">
+                Walk Out
+              </button>
               <div class="fw-semibold text-danger">${t('team-b') || 'ทีม B'}</div>
               <div class="fs-2 fw-bold">${escapeHtml(match.teamB)}</div>
 

@@ -426,6 +426,41 @@ const courtService = {
     });
   },
 
+  async walkOut(cid, side) {
+    await this.saveUndoSnapshot(cid);
+    return new Promise((resolve, reject) => {
+      db.get("SELECT * FROM current_match WHERE court_id = ? LIMIT 1", [cid], async (err, match) => {
+        if (err || !match) return reject(err || new Error("no_match"));
+
+        db.get("SELECT * FROM queue WHERE court_id = ? ORDER BY position ASC LIMIT 1", [cid], async (err2, nextPair) => {
+          if (err2) return reject(err2);
+
+          if (nextPair) {
+            const teamA = side === 'A' ? nextPair.name : match.teamA;
+            const matchesPlayedA = side === 'A' ? nextPair.matchesPlayed : match.matchesPlayedA;
+            const teamB = side === 'B' ? nextPair.name : match.teamB;
+            const matchesPlayedB = side === 'B' ? nextPair.matchesPlayed : match.matchesPlayedB;
+
+            db.serialize(async () => {
+              db.run("UPDATE current_match SET teamA=?, matchesPlayedA=?, teamB=?, matchesPlayedB=?, timestamp=? WHERE court_id = ?", [teamA, matchesPlayedA, teamB, matchesPlayedB, Date.now(), cid]);
+              db.run("DELETE FROM queue WHERE id = ? AND court_id = ?", [nextPair.id, cid], async () => {
+                await this.normalizeQueuePositions(cid);
+                await this.broadcastCourtState(cid);
+                resolve();
+              });
+            });
+          } else {
+            // No one in queue to replace, the match cannot continue
+            db.run("DELETE FROM current_match WHERE court_id = ?", [cid], async () => {
+              await this.broadcastCourtState(cid);
+              resolve();
+            });
+          }
+        });
+      });
+    });
+  },
+
   // --- History Logic ---
   async getGlobalHistory() {
     return new Promise((resolve, reject) => {

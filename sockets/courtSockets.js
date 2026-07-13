@@ -101,6 +101,16 @@ function registerCourtHandlers(io) {
       }
     });
 
+    socket.on('walk-out', async (data) => {
+      const { courtId, side } = data;
+      const cid = Number(courtId);
+      try {
+        await courtService.walkOut(cid, side);
+      } catch (err) {
+        console.error('Socket walk-out error:', err);
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
     });
