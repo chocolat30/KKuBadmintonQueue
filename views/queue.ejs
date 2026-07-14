@@ -9,6 +9,7 @@
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -184,14 +185,12 @@
           <h2 class="fw-bold mb-0">
             <%= court.name %>
             <span class="live-dot" id="liveIndicator"></span>
-  
           </h2>
         </div>
       </div>
 
       <div class="d-flex gap-2 align-items-center top-actions">
-        <div id="courtQR" class="d-none"></div>
-            <button id="showQRBtn" class="btn btn-light border rounded-4" type="button">QR Code</button>
+        <button id="showQRBtn" class="btn btn-light border rounded-4" type="button">QR Code</button>
 
         <a href="/court/<%= court.id %>/history" class="btn btn-light border rounded-4">
           <i class="bi bi-clock-history"></i>
@@ -207,6 +206,27 @@
   </div>
 
   <div class="container pb-5">
+
+    <!-- QR Modal -->
+    <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" data-i18n="qr-modal-title">สแกนเพื่อต่อคิว</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center p-4">
+            <p class="text-secondary mb-4" data-i18n="qr-modal-text" data-i18n-value="<%= court.name %>">
+              สแกน QR Code นี้เพื่อต่อคิวของ <%= court.name %>
+            </p>
+            <div id="courtQR" class="d-flex justify-content-center align-items-center mb-4"></div>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-light rounded-4 w-100" data-bs-dismiss="modal" data-i18n="qr-modal-close">ปิด</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="glass-card p-3 mb-4">
       <form id="joinForm" class="d-flex gap-3 flex-column flex-md-row">
@@ -340,19 +360,13 @@
     const url = `${location.origin}/court/${courtId}`;
     new QRCode(document.getElementById('courtQR'), {
       text: url,
-      width: 72,
-      height: 72
+      width: 256,
+      height: 256
     });
-    // Toggle QR code visibility when button clicked
+
+    const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
     document.getElementById('showQRBtn').addEventListener('click', function() {
-      const qr = document.getElementById('courtQR');
-      if (qr.classList.contains('d-none')) {
-        qr.classList.remove('d-none');
-        this.textContent = 'Hide QR';
-      } else {
-        qr.classList.add('d-none');
-        this.textContent = 'QR Code';
-      }
+      qrModal.show();
     });
 
     socket.emit('join-court', courtId);
@@ -535,74 +549,6 @@
     }
 
     function setupDragAndDrop() {
-  const items = document.querySelectorAll('.queue-item');
-
-  items.forEach(item => {
-    const handle = item.querySelector('.drag-handle');
-
-    // Desktop drag events
-    handle.addEventListener('dragstart', () => {
-      draggedItem = item;
-      item.classList.add('dragging');
-    });
-    handle.addEventListener('dragend', () => {
-      item.classList.remove('dragging');
-      items.forEach(i => i.classList.remove('drag-over'));
-      sendQueueOrder();
-    });
-    item.addEventListener('dragover', e => {
-      e.preventDefault();
-      if (item !== draggedItem) item.classList.add('drag-over');
-    });
-    item.addEventListener('dragleave', () => {
-      item.classList.remove('drag-over');
-    });
-    item.addEventListener('drop', e => {
-      e.preventDefault();
-      if (item !== draggedItem) {
-        const allItems = [...document.querySelectorAll('.queue-item')];
-        const draggedIndex = allItems.indexOf(draggedItem);
-        const targetIndex = allItems.indexOf(item);
-        if (draggedIndex < targetIndex) {
-          item.parentNode.insertBefore(draggedItem, item.nextSibling);
-        } else {
-          item.parentNode.insertBefore(draggedItem, item);
-        }
-      }
-      item.classList.remove('drag-over');
-    });
-
-    // Mobile touch events
-    let touchMoveHandler = null;
-    handle.addEventListener('touchstart', e => {
-      e.preventDefault();
-      draggedItem = item;
-      item.classList.add('dragging');
-    });
-    handle.addEventListener('touchend', e => {
-      e.preventDefault();
-      item.classList.remove('dragging');
-      items.forEach(i => i.classList.remove('drag-over'));
-      sendQueueOrder();
-    });
-    handle.addEventListener('touchmove', e => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
-      const targetItem = targetElem && targetElem.closest('.queue-item');
-      if (targetItem && targetItem !== draggedItem) {
-        const allItems = [...document.querySelectorAll('.queue-item')];
-        const draggedIndex = allItems.indexOf(draggedItem);
-        const targetIndex = allItems.indexOf(targetItem);
-        if (draggedIndex < targetIndex) {
-          targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
-        } else {
-          targetItem.parentNode.insertBefore(draggedItem, targetItem);
-        }
-      }
-    });
-  });
-}
       const items = document.querySelectorAll('.queue-item');
 
       items.forEach(item => {
@@ -612,42 +558,63 @@
           draggedItem = item;
           item.classList.add('dragging');
         });
-
         handle.addEventListener('dragend', () => {
           item.classList.remove('dragging');
           items.forEach(i => i.classList.remove('drag-over'));
+          sendQueueOrder();
         });
-
         item.addEventListener('dragover', e => {
           e.preventDefault();
           if (item !== draggedItem) item.classList.add('drag-over');
         });
-
         item.addEventListener('dragleave', () => {
           item.classList.remove('drag-over');
         });
-
         item.addEventListener('drop', e => {
           e.preventDefault();
-
           if (item !== draggedItem) {
             const allItems = [...document.querySelectorAll('.queue-item')];
             const draggedIndex = allItems.indexOf(draggedItem);
             const targetIndex = allItems.indexOf(item);
-
             if (draggedIndex < targetIndex) {
               item.parentNode.insertBefore(draggedItem, item.nextSibling);
             } else {
               item.parentNode.insertBefore(draggedItem, item);
             }
-
-            sendQueueOrder();
           }
-
           item.classList.remove('drag-over');
         });
-      });
 
+        let touchMoveHandler = null;
+        handle.addEventListener('touchstart', e => {
+          e.preventDefault();
+          draggedItem = item;
+          item.classList.add('dragging');
+        });
+        handle.addEventListener('touchend', e => {
+          e.preventDefault();
+          item.classList.remove('dragging');
+          items.forEach(i => i.classList.remove('drag-over'));
+          sendQueueOrder();
+        });
+        handle.addEventListener('touchmove', e => {
+          e.preventDefault();
+          const touch = e.touches[0];
+          const targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
+          const targetItem = targetElem && targetElem.closest('.queue-item');
+          if (targetItem && targetItem !== draggedItem) {
+            const allItems = [...document.querySelectorAll('.queue-item')];
+            const draggedIndex = allItems.indexOf(draggedItem);
+            const targetIndex = allItems.indexOf(targetItem);
+            if (draggedIndex < targetIndex) {
+              targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
+            } else {
+              targetItem.parentNode.insertBefore(draggedItem, targetItem);
+            }
+          }
+        });
+      });
+    }
 
     function sendQueueOrder() {
       const items = document.querySelectorAll('.queue-item');
