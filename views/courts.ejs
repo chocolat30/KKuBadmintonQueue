@@ -167,10 +167,11 @@
                                         ดูประวัติแมตช์
                                     </a>
 
-                                    <form action="/court/<%= c.id %>/delete" method="POST">
-                                        <button type="submit"
-                                            class="btn btn-outline-danger btn-soft"
-                                            onclick="return confirm(t('delete-court-data'))">
+                                    <form action="/court/<%= c.id %>/delete" method="POST" class="delete-court-form">
+                                        <button type="button"
+                                            class="btn btn-outline-danger btn-soft delete-court-btn"
+                                            data-cid="<%= c.id %>"
+                                            data-has-password="<%= c.password ? 'true' : 'false' %>">
                                             <i class="bi bi-trash"></i>
                                             <span data-i18n="delete-court-btn">ลบคอร์ด</span>
                                         </button>
@@ -254,12 +255,39 @@
         const passwordModal = bootstrap.Modal.getOrCreateInstance(modal);
 
         let currentCid = null;
+        let currentAction = 'open';
 
         // Attach to all open buttons (lock icon + regular)
         document.querySelectorAll('[data-open-court]').forEach(btn => {
             btn.addEventListener('click', e => {
                 e.preventDefault();
                 currentCid = btn.dataset.openCourt;
+                currentAction = 'open';
+                form.reset();
+                errorBox.classList.add('d-none');
+                input.classList.remove('is-invalid');
+                passwordModal.show();
+                setTimeout(() => input.focus(), 300);
+            });
+        });
+
+        // --- Delete Court Logic ---
+        document.querySelectorAll('.delete-court-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+                const cid = btn.dataset.cid;
+                const hasPassword = btn.dataset.hasPassword === 'true';
+                const formDelete = btn.closest('.delete-court-form');
+
+                if (!hasPassword) {
+                    if (confirm(t('delete-court-data'))) {
+                        formDelete.submit();
+                    }
+                    return;
+                }
+
+                // Use the same passwordModal
+                currentCid = cid;
+                currentAction = 'delete';
                 form.reset();
                 errorBox.classList.add('d-none');
                 input.classList.remove('is-invalid');
@@ -287,15 +315,26 @@
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + t('password-modal-btn');
 
             try {
-                const res = await fetch(`/court/${currentCid}/open`, {
+                let url = '';
+                if (currentAction === 'open') {
+                    url = `/court/${currentCid}/open`;
+                } else if (currentAction === 'delete') {
+                    url = `/court/${currentCid}/delete`;
+                }
+
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password: pw })
                 });
 
                 if (res.ok || res.redirected) {
-                    const loc = res.headers.get('location') || `/court/${currentCid}`;
-                    window.location.href = loc;
+                    if (currentAction === 'open') {
+                        const loc = res.headers.get('location') || `/court/${currentCid}`;
+                        window.location.href = loc;
+                    } else if (currentAction === 'delete') {
+                        window.location.href = '/?msg=court_deleted';
+                    }
                     return;
                 }
 
@@ -307,9 +346,15 @@
                     return;
                 }
 
-                throw new Error(msg || 'open_failed');
+                throw new Error(msg || 'delete_failed');
             } catch (err) {
-                window.location.href = `/court/${currentCid}?msg=open_error`;
+                console.error(err);
+                // For delete, we might just stay on the page
+                if (currentAction === 'delete') {
+                    alert('Error deleting court: ' + err.message);
+                } else {
+                    window.location.href = `/court/${currentCid}?msg=open_error`;
+                }
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-unlock"></i> ' + t('password-modal-btn');
@@ -348,7 +393,8 @@
             addCourtPassword.value = val;
             updateSetPasswordBtn();
             setPasswordModal.hide();
-        });
+        }
+        );
 
         clearPasswordBtn.addEventListener('click', () => {
             setPasswordInput.value = '';
@@ -361,6 +407,6 @@
         updateSetPasswordBtn();
     });
     </script>
-    </body>
+</body>
 
-    </html>
+</html>
