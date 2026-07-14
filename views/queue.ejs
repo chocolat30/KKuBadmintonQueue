@@ -217,7 +217,7 @@
           </div>
           <div class="modal-body text-center p-4">
             <p class="text-secondary mb-4" data-i18n="qr-modal-text" data-i18n-value="<%= court.name %>">
-              สแกน QR Code นี้เพื่อต่อคิวของ <%= court.name %>
+              สแกน QR Code นี้เพื่อต่อคิวของคอร์ท <%= court.name %>
             </p>
             <div id="courtQR" class="d-flex justify-content-center align-items-center mb-4"></div>
           </div>
@@ -414,7 +414,7 @@
 
           <div class="col-lg-5">
             <div class="team-panel team-green position-relative">
-              <button class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2"
+              <button class="btn btn-sm btn-warning position-absolute top-0 end-0 m-2"
                 onclick="if(confirm(t('confirm-walk-out'))) socket.emit('walk-out', { courtId: parseInt(courtId), side: 'A' })"
                 data-i18n="walk-out-btn">
                 Walk Out
@@ -448,7 +448,7 @@
 
           <div class="col-lg-5">
             <div class="team-panel team-red position-relative">
-              <button class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2"
+              <button class="btn btn-sm btn-warning position-absolute top-0 end-0 m-2"
                 onclick="if(confirm(t('confirm-walk-out'))) socket.emit('walk-out', { courtId: parseInt(courtId), side: 'B' })"
                 data-i18n="walk-out-btn">
                 Walk Out
