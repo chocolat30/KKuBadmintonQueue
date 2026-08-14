@@ -1,6 +1,6 @@
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
-const dbPath = path.join(__dirname, "queue.db");
+const dbPath = process.env.DB_PATH || path.join(__dirname, "queue.db");
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Failed to connect to SQLite database:', err.message);
@@ -25,39 +25,37 @@ db.serialize(() => {
     )
   `);
 
-  // Ensure AUTOINCREMENT is removed (for existing DBs)
+  // Ensure the courts table has all expected columns, rebuilding legacy
+  // AUTOINCREMENT tables without losing data (uuid/password/pairs)
   db.all("PRAGMA table_info(courts)", (err, rows) => {
     if (!rows) return;
     const cols = rows.map(r => r.name);
-    if (!cols.includes("uuid")) {
-      db.run('ALTER TABLE courts ADD COLUMN uuid TEXT');
-    }
 
-    const hasAuto = rows.some(r => r.pk === 1 && r.type.includes("AUTOINCREMENT"));
-    if (hasAuto) {
-      // rebuild table without AUTOINCREMENT
+    if (rows.some(r => r.pk === 1 && r.type.includes("AUTOINCREMENT"))) {
+      // Rebuild table without AUTOINCREMENT, preserving all columns
       db.run(`ALTER TABLE courts RENAME TO courts_old`);
       db.run(`
         CREATE TABLE courts (
           id INTEGER PRIMARY KEY,
           name TEXT NOT NULL,
-          password TEXT DEFAULT NULL
+          pairs INTEGER DEFAULT 0,
+          password TEXT DEFAULT NULL,
+          uuid TEXT
         )
       `);
-      db.run(`INSERT INTO courts (id, name) SELECT id, name FROM courts_old`);
+      db.run(`INSERT INTO courts (id, name, pairs, password, uuid)
+              SELECT id, name, pairs, password, uuid FROM courts_old`);
       db.run(`DROP TABLE courts_old`);
-      // Add pairs column if missing (for existing tables without it)
-      db.run('ALTER TABLE courts ADD COLUMN IF NOT EXISTS pairs INTEGER DEFAULT 0');
     } else {
-      // For existing tables without AUTOINCREMENT, check if password column exists
-      const hasPassword = rows.some(r => r.name === "password");
-      if (!hasPassword) {
+      // Add any missing columns to existing tables
+      if (!cols.includes("pairs")) {
+        db.run('ALTER TABLE courts ADD COLUMN pairs INTEGER DEFAULT 0');
+      }
+      if (!cols.includes("password")) {
         db.run('ALTER TABLE courts ADD COLUMN password TEXT DEFAULT NULL');
       }
-      // Add pairs column if missing (for existing tables without it)
-      const hasPairs = rows.some(r => r.name === "pairs");
-      if (!hasPairs) {
-        db.run('ALTER TABLE courts ADD COLUMN pairs INTEGER DEFAULT 0');
+      if (!cols.includes("uuid")) {
+        db.run('ALTER TABLE courts ADD COLUMN uuid TEXT');
       }
     }
   });

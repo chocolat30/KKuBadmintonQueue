@@ -1,58 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const courtService = require('../services/courtService');
+const { requireCourtAccess } = require('../helpers/courtAuth');
 
-// Queue page for a court
-// Helper to sanitize simple text inputs (basic HTML‑entity escape)
-function sanitize(str) {
-  return (str || '').replace(/[&<>"']/g, c => {
-    switch (c) {
-      case '&': return '&amp;';
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '"': return '&quot;';
-      case "'": return '&#39;';
-      default: return c;
-    }
-  });
-}
-
-// Queue page for a court
-router.get('/:cid', async (req, res) => {
-  const cid = Number(req.params.cid);
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).send('Invalid court id');
-  }
+// Queue page for a court (password-protected courts are redirected to the open form)
+router.get('/:cid', requireCourtAccess, async (req, res) => {
   try {
-    const { court, queue, match } = await courtService.getCourtDetails(cid);
-    if (!court) return res.redirect('/');
-
-    console.log(`[DEBUG] Accessing court ${cid}. Password: ${court.password ? 'YES' : 'NO'}, Cookie: ${req.cookies ? JSON.stringify(req.cookies) : 'UNDEFINED'}`);
-
-    // Password protection check
-    if (court.password && !req.cookies[`court_auth_${court.uuid}`]) {
-      console.log(`[DEBUG] Redirecting court ${cid} to open form`);
-      return res.redirect(`/court/${cid}/open`);
-    }
-
-    res.render('queue', {
-      queue,
-      match,
-      court
-    });
+    const { court, queue, match } = await courtService.getCourtDetails(req.params.cid);
+    res.render('queue', { court, queue, match });
   } catch (err) {
-    if (err.message === 'Court not found') return res.redirect('/');
     res.status(500).send(err.message);
   }
 });
 
-// Join queue – validate cid and sanitize player name
+// Join queue – validate cid
 router.post('/:cid/join', async (req, res) => {
   const cid = Number(req.params.cid);
   if (!Number.isInteger(cid) || cid <= 0) {
     return res.status(400).send('Invalid court id');
   }
-  const name = sanitize(req.body.name);
+  const name = (req.body.name || '').trim();
   if (!name) return res.redirect(`/court/${cid}`);
   try {
     await courtService.joinQueue(cid, name);
@@ -81,14 +48,14 @@ router.post('/:cid/reorder-queue', async (req, res) => {
   }
 });
 
-// Rename queue name – validate cid, id and sanitize new name
+// Rename queue name – validate cid and id
 router.post('/:cid/rename/:id', async (req, res) => {
   const cid = Number(req.params.cid);
   const id = Number(req.params.id);
   if (!Number.isInteger(cid) || cid <= 0 || !Number.isInteger(id) || id <= 0) {
     return res.status(400).send('Invalid identifiers');
   }
-  const newName = sanitize(req.body.name);
+  const newName = (req.body.name || '').trim();
   if (!newName) return res.redirect(`/court/${cid}`);
   try {
     await courtService.renamePlayer(cid, id, newName);
@@ -109,8 +76,7 @@ router.get('/:cid/undo', async (req, res) => {
     res.redirect(`/court/${cid}?msg=undone`);
   } catch (err) {
     if (err.message === 'nothing_to_undo') return res.redirect(`/court/${cid}?msg=undoerror`);
-    res.json({ success: false, msg: 'nothing_to_undo' });
-    res.status(500).send(err.message);    
+    res.status(500).send(err.message);
   }
 });
 
@@ -120,60 +86,6 @@ router.get('/:cid/clear-queue', async (req, res) => {
   if (!Number.isInteger(cid) || cid <= 0) {
     return res.status(400).send('Invalid court id');
   }
-  try {
-    await courtService.clearQueue(cid);
-    res.redirect(`/court/${cid}?msg=queuecleared`);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-
-// Join queue
-router.post('/:cid/join', async (req, res) => {
-  const cid = Number(req.params.cid);
-  const name = (req.body.name || '').trim();
-  if (!name) return res.redirect(`/court/${cid}`);
-  try {
-    await courtService.joinQueue(cid, name);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Reorder queue via drag and drop
-router.post('/:cid/reorder-queue', async (req, res) => {
-  const cid = Number(req.params.cid);
-  const { order } = req.body;
-  if (!order || !Array.isArray(order)) {
-    return res.status(400).json({ error: 'Invalid order' });
-  }
-  try {
-    await courtService.reorderQueue(cid, order);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Reorder error:', err);
-    res.status(500).json({ error: 'Reorder failed' });
-  }
-});
-
-// Rename queue name
-router.post('/:cid/rename/:id', async (req, res) => {
-  const cid = Number(req.params.cid);
-  const id = Number(req.params.id);
-  const newName = (req.body.name || '').trim();
-  if (!newName) return res.redirect(`/court/${cid}`);
-  try {
-    await courtService.renamePlayer(cid, id, newName);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Clear queue for a court
-router.get('/:cid/clear-queue', async (req, res) => {
-  const cid = Number(req.params.cid);
   try {
     await courtService.clearQueue(cid);
     res.redirect(`/court/${cid}?msg=queuecleared`);

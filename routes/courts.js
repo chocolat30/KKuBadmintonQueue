@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const courtService = require('../services/courtService');
-const bcrypt = require('bcryptjs');
+const { verifyCourtPassword, setCourtAuthCookie } = require('../helpers/courtAuth');
 
 /// Home page – list of courts
 router.get('/', async (req, res) => {
@@ -37,13 +37,8 @@ router.post('/court/:cid/delete', async (req, res) => {
     const court = await courtService.getCourtById(cid);
     if (!court) return res.status(404).send('Court not found');
 
-    if (court.password) {
-      const isCourtMatch = supplied ? await bcrypt.compare(supplied, court.password) : false;
-      const isMasterMatch = supplied === process.env.ADMIN_MASTER_KEY;
-      
-      if (!isCourtMatch && !isMasterMatch) {
-        return res.status(403).send('Incorrect password');
-      }
+    if (court.password && !(await verifyCourtPassword(court, supplied))) {
+      return res.status(403).send('Incorrect password');
     }
 
     await courtService.deleteCourt(cid);
@@ -65,24 +60,12 @@ router.post('/court/:cid/open', async (req, res) => {
     const court = await courtService.getCourtById(cid);
     if (!court) return res.status(404).send('Court not found');
 
-    // If the court is password‑protected ...
+    // If the court is password-protected, verify the password
     if (court.password) {
-      // ... and no password was supplied or mismatch -> 403
-      const isCourtMatch = supplied 
-        ? await bcrypt.compare(supplied, court.password) 
-        : false;
-      const isMasterMatch = supplied === process.env.ADMIN_MASTER_KEY;
-
-      if (!isCourtMatch && !isMasterMatch) {
+      if (!(await verifyCourtPassword(court, supplied))) {
         return res.status(403).send('Incorrect password');
       }
-      // Set a session cookie for this court using its UUID
-      res.cookie(`court_auth_${court.uuid}`, 'true', { 
-        maxAge: 60 * 60 * 1000, 
-        httpOnly: true, 
-        sameSite: 'lax',
-        path: '/'
-      });
+      setCourtAuthCookie(res, court);
     }
     // Password ok (or court is open) -> tell client to navigate
     return res.json({ ok: true, location: `/court/${cid}` });
@@ -102,138 +85,19 @@ router.get('/court/:cid/open', async (req, res) => {
     const court = await courtService.getCourtById(cid);
     if (!court) return res.redirect('/');
 
-    // If the court is password‑protected …
+    // If the court is password-protected …
     if (court.password) {
       // … and no password was supplied, show the entry form
       if (!supplied) {
-        return res.render('court-open-form', { 
-            cid,
-            APP_VERSION: require('../package.json').version 
-        });
+        return res.render('court-open-form', { cid });
       }
-      // Use bcrypt to compare the supplied password with the stored hash
-      const isCourtMatch = await bcrypt.compare(supplied, court.password);
-      const isMasterMatch = supplied === process.env.ADMIN_MASTER_KEY;
-
-      if (!isCourtMatch && !isMasterMatch) {
+      if (!(await verifyCourtPassword(court, supplied))) {
         return res.status(403).send('Incorrect password');
       }
-      // Set a session cookie for this court
-      res.cookie(`court_auth_${court.uuid}`, 'true', { 
-        maxAge: 60 * 60 * 1000, 
-        httpOnly: true, 
-        sameSite: 'lax',
-        path: '/'
-      });
+      setCourtAuthCookie(res, court);
     }
     // Password ok (or court is open) → go to the court page
     return res.redirect(`/court/${cid}`);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-
-/// Queue page for a court
-router.get('/:cid', async (req, res) => {
-  const cid = Number(req.params.cid);
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).send('Invalid court id');
-  }
-  try {
-    const { court, queue, match } = await courtService.getCourtDetails(cid);
-    if (!court) return res.redirect('/');
-
-    console.log(`[DEBUG] Accessing court ${cid} via courts.js. Password: ${court.password ? 'YES' : 'NO'}, SignedCookies: ${req.signedCookies ? JSON.stringify(req.signedCookies) : 'UNDEFINED'}`);
-
-    // Password protection check
-    if (court.password && !req.cookies[`court_auth_${court.uuid}`]) {
-      console.log(`[DEBUG] Redirecting court ${cid} via courts.js to open form`);
-      return res.redirect(`/court/${cid}/open`);
-    }
-
-    res.render('queue', { court, queue, match });
-  } catch (err) {
-    if (err.message === 'Court not found') return res.redirect('/');
-    res.status(500).send(err.message);
-  }
-});
-
-/// Join queue – validate cid and sanitize player name
-router.post('/:cid/join', async (req, res) => {
-  const cid = Number(req.params.cid);
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).send('Invalid court id');
-  }
-  const name = (req.body.name || '').trim();
-  if (!name) return res.redirect(`/court/${cid}`);
-  try {
-    await courtService.joinQueue(cid, name);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/// Reorder queue – validate cid and payload shape
-router.post('/:cid/reorder-queue', async (req, res) => {
-  const cid = Number(req.params.cid);
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).send('Invalid court id');
-  }
-  const { order } = req.body;
-  if (!order || !Array.isArray(order) || !order.every(o => Number.isInteger(o.id) && Number.isInteger(o.position))) {
-    return res.status(400).json({ error: 'Invalid order' });
-  }
-  try {
-    await courtService.reorderQueue(cid, order);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Reorder error:', err);
-    res.status(500).json({ error: 'Reorder failed' });
-  }
-});
-
-/// Rename queue name – validate cid, id and sanitize new name
-router.post('/:cid/rename/:id', async (req, res) => {
-  const cid = Number(req.params.cid);
-  const id = Number(req.params.id);
-  if (!Number.isInteger(cid) || cid <= 0 || !Number.isInteger(id) || id <= 0) {
-    return res.status(400).send('Invalid identifiers');
-  }
-  const newName = (req.body.name || '').trim();
-  if (!newName) return res.redirect(`/court/${cid}`);
-  try {
-    await courtService.renamePlayer(cid, id, newName);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ err: err.message });
-  }
-});
-
-/// Undo last action – validate cid
-router.get('/:cid/undo', async (req, res) => {
-  const cid = Number(req.params.cid);
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).send('Invalid court id');
-  }
-  try {
-    await courtService.undoAction(cid);
-    res.redirect(`/court/${cid}?msg=undone`);
-  } catch (err) {
-    if (err.message === 'nothing_to_undo') return res.redirect(`/court/${cid}?msg=undoerror`);
-    res.status(500).send(err.message);
-  }
-});
-
-/// Clear queue for a court – validate cid
-router.get('/:cid/clear-queue', async (req, res) => {
-  const cid = Number(req.params.cid);
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).send('Invalid court id');
-  }
-  try {
-    await courtService.clearQueue(cid);
-    res.redirect(`/court/${cid}?msg=queuecleared`);
   } catch (err) {
     res.status(500).send(err.message);
   }
